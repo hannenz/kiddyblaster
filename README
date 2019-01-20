@@ -1,0 +1,30 @@
+# KiddyBlaster
+
+RFID driven musicbox for children
+
+## Parts
+
+- RFID-Reader: MFRC522
+- LCD (optional): I2C LCD 
+- USB Audio 
+- Amplifier
+- Speakers
+- Arcade buttons
+- Potentiometer for volume control
+- RJ52 Jack and short patch cable
+- Case: I've done it with PVC, could also be done with wood or use/upcycle an old plastic case or whatever...
+
+
+## Some words on ...
+
+... sound quality: It's not as decent as I wished it would be, don't expect HiFi. The speakers are really not so well. But it's ok for listening to audiobooks and some music
+
+... WiFi?  I decided to not spoil my children's room with WiFi and to keep my box without WiFi, however adding WiFi is easy (search for it in the internets) Thus I decidede to add a RJ52 plug for maintenance.
+
+
+## Dependencies
+
+- libmpdclient
+- wiringPi
+- 
+
