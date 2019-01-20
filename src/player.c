@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <mpd/client.h>
 #include <mpd/connection.h>
+#include <syslog.h>
 #include "player.h"
 
 int player_get_current_song_nr() {
@@ -8,13 +9,13 @@ int player_get_current_song_nr() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        fprintf(stderr, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
         return -1;
     }
 
     struct mpd_status *status = mpd_run_status(mpd);
     if (status == NULL) {
-        fprintf(stderr, "Failed to get mpd status\n");
+        syslog(LOG_ERR, "Failed to get mpd status\n");
         return -1;
     }
 
@@ -32,7 +33,7 @@ void player_toggle() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        fprintf(stderr, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
         return;
     }
 
@@ -46,7 +47,7 @@ void player_next() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        fprintf(stderr, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
         return;
     }
 
@@ -61,7 +62,7 @@ void player_previous() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        fprintf(stderr, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
         return;
     }
 

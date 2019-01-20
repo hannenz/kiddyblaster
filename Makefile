@@ -1,5 +1,5 @@
 # Makefile from https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
-TARGET_EXEC ?= box
+TARGET_EXEC ?= kiddyblaster
 
 BUILD_DIR ?= ./build
 SRC_DIRS ?= ./src
@@ -12,7 +12,7 @@ INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP
-LDFLAGS:=-lwiringPi -lmpdclient
+LDFLAGS:=-lwiringPi -lmpdclient -lbcm2835
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)

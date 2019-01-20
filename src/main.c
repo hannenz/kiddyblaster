@@ -11,20 +11,38 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <syslog.h>
+#include <sys/stat.h>
+#include <signal.h>
 #include <time.h>
+
 #include <mpd/client.h>
 #include <mpd/connection.h>
+
 #include <wiringPi.h>
+
 #include "i2c_lcd.h"
 #include "player.h"
+#include "mfrc522.h"
+
+typedef void (*sighandler_t)(int);
+
+
 
 #define BUTTON_1_PIN 26 
 #define BUTTON_2_PIN 4
 
+
+
 unsigned long btn1_t0;
 unsigned long btn2_t0;
-unsigned long btn2_t1;
 
+extern Uid uid;
+
+
+// Prototypes
 void update_lcd();
 
 
@@ -36,6 +54,7 @@ void on_button_1_pressed() {
     }
     btn1_t0 = t1;
     printf("Button 1 has been pressed\n");
+    syslog(LOG_NOTICE, "Button 1 has been pressed\n");
     player_toggle();
     update_lcd();
 }
@@ -57,26 +76,25 @@ static void on_button_2_pressed() {
     level = digitalRead(BUTTON_2_PIN);
     printf("%u\n", level);
 
-    if (btn2_is_pressed) {
-        return;
-    }
+    //if (btn2_is_pressed) {
+      //  return;
+    // }
 
     // Debounce button
     t1 = millis();
-    if (t1 - btn2_t0 < 600) {
+    if (t1 - btn2_t0 < 700) {
         return;
     }
     btn2_t0 = t1;
 
-    btn2_is_pressed = TRUE;
+    // btn2_is_pressed = TRUE;
 
     // Wait for button being released
-    while (level == LOW) {
+    while (digitalRead(BUTTON_2_PIN) == LOW) {
         delay(100);
-        level = digitalRead(BUTTON_2_PIN);
     }
 
-    btn2_is_pressed = FALSE;
+    // btn2_is_pressed = FALSE;
 
     duration = millis() - t1;
     printf("D: %lu\n", duration);
@@ -97,6 +115,10 @@ static void on_button_2_pressed() {
 }
 
 
+
+/**
+ * Update the LCD display
+ */
 void update_lcd() {
     struct mpd_connection *mpd;
     char str[17], *states[] = { "??", "..", "|>", "||" };
@@ -104,13 +126,13 @@ void update_lcd() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        fprintf(stderr, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
         return;
     }
 
     struct mpd_status *status = mpd_run_status(mpd);
     if (status == NULL) {
-        fprintf(stderr, "Failed to get mpd status\n");
+        syslog(LOG_ERR, "Failed to get mpd status\n");
         return;
     }
 
@@ -129,7 +151,57 @@ void update_lcd() {
 
 
 
+static sighandler_t handle_signal(int sig_nr, sighandler_t signalhandler) {
+    struct sigaction new_sig, old_sig;
+
+    new_sig.sa_handler = signalhandler;
+    sigemptyset(&new_sig.sa_mask);
+    new_sig.sa_flags = SA_RESTART;
+    if (sigaction(sig_nr, &new_sig, &old_sig) < 0) {
+        return SIG_ERR;
+    }
+    return old_sig.sa_handler;
+}
+
+
+
+static void start_daemon(const char *log_name, int facility) {
+    int i;
+    pid_t pid;
+
+    // Terminate parent process, creating a widow which will be handled by init
+    if ((pid = fork()) != 0) {
+        exit (EXIT_FAILURE);
+    }
+
+    // child process becomes session leader
+    if (setsid() < 0) {
+        printf("%s can not become session leader\n", log_name);
+        exit(EXIT_FAILURE);
+    }
+
+    // Ignore SIGHUP
+    handle_signal(SIGHUP, SIG_IGN);
+
+    // Terminate the child
+    if ((pid = fork()) != 0) {
+        exit(EXIT_FAILURE);
+    }
+
+    chdir("/");
+    umask(0);
+    for (i = sysconf(_SC_OPEN_MAX); i > 0; i--) {
+        close(i);
+    }
+
+    openlog(log_name, LOG_PID | LOG_CONS | LOG_NDELAY, facility);
+}
+
+
+
 int main() {
+
+//    start_daemon("kiddyblasterd", LOG_LOCAL0);
 
     // Setup WiringPi Lib
     wiringPiSetupGpio();
@@ -145,10 +217,38 @@ int main() {
     lcd_init();
     update_lcd();
 
+
+    // Init MFRC522
+    mfrc522_init();
+    mfrc522_pcd_init();
+
     // Start an endless loop
     for (;;) {
+        if (!mfrc522_picc_is_new_card_present()) {
+            continue;
+        }
+        if (!mfrc522_picc_read_card_serial()) {
+            continue;
+        }
+
+        int i;
+        for (i = 0; i < uid.size; i++) {
+            if (uid.uidByte[i] < 0x10) {
+                printf(" 0");
+                printf("%X", uid.uidByte[i]);
+            }
+            else {
+                printf(" ");
+                printf("%X", uid.uidByte[i]);
+            }
+        }
+        printf("\n");
+
+
         delay(500);
     }
 
-    return 0;
+    syslog(LOG_NOTICE, "daemon has terminated\n");
+    closelog();
+    return EXIT_SUCCESS;
 }
