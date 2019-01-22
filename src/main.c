@@ -30,36 +30,60 @@
 typedef void (*sighandler_t)(int);
 
 
+#define PRG_NAME "kiddyblaster"
+#define DAEMON_NAME "kiddyblasterd"
 
 #define BUTTON_1_PIN 26 
 #define BUTTON_2_PIN 4
 
 
 
-unsigned long btn1_t0;
-unsigned long btn2_t0;
-
 extern Uid uid;
+
 
 
 // Prototypes
 void update_lcd();
+static void start_daemon(const char*, int);
 
 
 
-void on_button_1_pressed() {
-    unsigned long t1 = millis();
-    if (t1 - btn1_t0 < 300) {
-        return;
+static void on_button_1_pressed() {
+
+    unsigned long duration;
+    static unsigned long button_pressed_timestamp;
+    int level;
+
+    delay(100);
+
+    level = digitalRead(BUTTON_1_PIN);
+
+    if (level == LOW) {
+        button_pressed_timestamp = millis();
     }
-    btn1_t0 = t1;
-    printf("Button 1 has been pressed\n");
-    syslog(LOG_NOTICE, "Button 1 has been pressed\n");
-    player_toggle();
-    update_lcd();
+    else {
+        duration = millis() - button_pressed_timestamp;
+        button_pressed_timestamp = millis();
+
+        if (duration < 100) {
+            // debounce...
+            return;
+        }
+        else if (duration < 700) {
+            syslog(LOG_NOTICE, "|| TOGGLE\n");
+            //player_toggle();
+        }
+        else if (duration < 5000) {
+            // Not implemented yet... later maybe "Card Write Mode"
+        }
+        else {
+            //
+        }
+
+        update_lcd();
+    }
 }
 
-int btn2_is_pressed = FALSE;
 
 
 /**
@@ -69,49 +93,45 @@ int btn2_is_pressed = FALSE;
  * depending on the press duration
  */
 static void on_button_2_pressed() {
+    
     unsigned long duration;
-    unsigned long t1;
+    static unsigned long button_pressed_timestamp;
     int level;
 
+    delay(100);
+
     level = digitalRead(BUTTON_2_PIN);
-    printf("%u\n", level);
 
-    //if (btn2_is_pressed) {
-      //  return;
-    // }
-
-    // Debounce button
-    t1 = millis();
-    if (t1 - btn2_t0 < 700) {
-        return;
-    }
-    btn2_t0 = t1;
-
-    // btn2_is_pressed = TRUE;
-
-    // Wait for button being released
-    while (digitalRead(BUTTON_2_PIN) == LOW) {
-        delay(100);
-    }
-
-    // btn2_is_pressed = FALSE;
-
-    duration = millis() - t1;
-    printf("D: %lu\n", duration);
-
-    // Action depends on duration...
-    if (duration > 5000) {
-        printf("Self destruction sequence initiated!\n");
-    }
-    else if (duration > 700) {
-        printf("<< PREV\n");
-        player_previous();
+    if (level == LOW) {
+        button_pressed_timestamp = millis();
     }
     else {
-        printf(">> NEXT\n");
-        player_next();
+        duration = millis() - button_pressed_timestamp;
+        button_pressed_timestamp = millis();
+
+        if (duration < 100) {
+            // debounce...
+            return;
+        }
+        else if (duration < 700) {
+            syslog(LOG_NOTICE, ">> NEXT\n");
+            //printf( ">> NEXT\n");
+            player_next();
+        }
+        else if (duration < 3000) {
+            syslog(LOG_NOTICE, "<< PREV\n");
+            //printf( "<< PREV\n");
+            player_previous();
+        }
+        else {
+            syslog(LOG_NOTICE, "!! RESTART\n");
+            //printf( "!! RESTART\n");
+ 
+            //systemd will respawn us!
+            exit(0);
+        }
+        update_lcd();
     }
-    update_lcd();
 }
 
 
@@ -121,7 +141,7 @@ static void on_button_2_pressed() {
  */
 void update_lcd() {
     struct mpd_connection *mpd;
-    char str[17], *states[] = { "??", "..", "|>", "||" };
+    char str[10], *states[] = { "??", "..", "|>", "||" };
     int n, m;
 
     mpd = mpd_connection_new("localhost", 6600, 0);
@@ -137,13 +157,28 @@ void update_lcd() {
     }
 
     int state = mpd_status_get_state(status);
+    int song_id = mpd_status_get_song_id(status);
+
+    struct mpd_song *song = mpd_run_get_queue_song_id(mpd, song_id);
+    char *title;
+    title = (char*)mpd_song_get_tag(song, MPD_TAG_TITLE, 0);
+
+    // Truncate titles longer than 16 characters
+    if (strlen(title) > 16) {
+        title[13] = '.';
+        title[14] = '.';
+        title[15] = '\0';
+    }
 
     n = player_get_current_song_nr() + 1;
     m = mpd_status_get_queue_length(status);
-//    unsigned int elapsed = mpd_status_get_elapsed_time(status);
-    snprintf(str, 17, "%02u/%02u       [%2s]", n, m, states[state]);
+    snprintf(str, sizeof(str), "%02u/%02u       [%s]", n, m, states[state]);
+
     lcd_clear();
+    lcd_loc(LCD_LINE_1);
     lcd_puts(str);
+    lcd_loc(LCD_LINE_2);
+    lcd_puts(title);
 
     mpd_status_free(status);
     mpd_connection_free(mpd);
@@ -195,30 +230,47 @@ static void start_daemon(const char *log_name, int facility) {
     }
 
     openlog(log_name, LOG_PID | LOG_CONS | LOG_NDELAY, facility);
+    syslog(LOG_NOTICE, "Daemon has been started\n");
 }
 
 
 
 int main() {
+    int check;
 
-//    start_daemon("kiddyblasterd", LOG_LOCAL0);
+    if (FALSE)
+        start_daemon(DAEMON_NAME, LOG_LOCAL0);
 
     // Setup WiringPi Lib
-    wiringPiSetupGpio();
+    check = wiringPiSetupGpio();
+    if (check != 0) {
+        syslog(LOG_ERR, "Failed to initializ GPIO\n");
+    }
 
     pinMode(BUTTON_1_PIN, INPUT);
     pinMode(BUTTON_2_PIN, INPUT);
 
-    // Register callbacks on button press
-    wiringPiISR(BUTTON_1_PIN, INT_EDGE_FALLING, on_button_1_pressed);
-    wiringPiISR(BUTTON_2_PIN, INT_EDGE_FALLING, on_button_2_pressed);
+    pullUpDnControl(BUTTON_1_PIN, PUD_UP);
+    pullUpDnControl(BUTTON_2_PIN, PUD_UP);
 
-    // Init LCD
+    // Register callbacks on button press
+    check = wiringPiISR(BUTTON_1_PIN, INT_EDGE_BOTH, &on_button_1_pressed);
+    if (check != 0) {
+        syslog(LOG_ERR, "Failed to register callback for button #1\n");
+        //fprintf(stderr, "wiringPiISR() failed\n");
+    }
+    check = wiringPiISR(BUTTON_2_PIN, INT_EDGE_BOTH, &on_button_2_pressed);
+    if (check != 0) {
+        syslog(LOG_ERR, "Failed to register callback for button #2\n");
+        //fprintf(stderr, "wiringPiISR() failed\n");
+    }
+
+    // Init LCD display
     lcd_init();
     update_lcd();
 
 
-    // Init MFRC522
+    // Init MFRC522 card reader
     mfrc522_init();
     mfrc522_pcd_init();
 
@@ -232,23 +284,22 @@ int main() {
         }
 
         int i;
+        char b[4], buffer[32] = "";
         for (i = 0; i < uid.size; i++) {
             if (uid.uidByte[i] < 0x10) {
-                printf(" 0");
-                printf("%X", uid.uidByte[i]);
+                snprintf(b, 4, " 0%X", uid.uidByte[i]);
             }
             else {
-                printf(" ");
-                printf("%X", uid.uidByte[i]);
+                snprintf(b, 4, " %X", uid.uidByte[i]);
             }
+            strncat(buffer, b, 32);
         }
-        printf("\n");
-
+        syslog(LOG_NOTICE, buffer);
 
         delay(500);
     }
 
-    syslog(LOG_NOTICE, "daemon has terminated\n");
+    syslog(LOG_NOTICE, "Daemon has terminated\n");
     closelog();
-    return EXIT_SUCCESS;
+    return 0;
 }

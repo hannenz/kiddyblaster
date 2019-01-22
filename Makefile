@@ -11,7 +11,7 @@ DEPS := $(OBJS:.o=.d)
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -Wall
 LDFLAGS:=-lwiringPi -lmpdclient -lbcm2835
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
@@ -33,7 +33,10 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 
-.PHONY: clean
+.PHONY: clean install
+
+install:
+	install -m 755 $(BUILD_DIR)/$(TARGET_EXEC) /usr/local/bin/
 
 clean:
 	$(RM) -r $(BUILD_DIR)

@@ -2,16 +2,6 @@
 #include <wiringPi.h>
 #include "i2c_lcd.h"
 
-#define I2C_ADDRESS 0x27 // I2C device address
-#define LCD_CHR 1 // Mode - sending data
-#define LCD_CMD 0 // Mode - sending command
-
-#define LINE_1 0x80 
-#define LINE_2 0xc0 
-
-#define LCD_BACKLIGHT 0x08
-#define ENABLE 0b00000100 // Enable bit
-
 int fd;
 
 void lcd_toggle_enable(int bits) {
@@ -22,6 +12,7 @@ void lcd_toggle_enable(int bits) {
 	wiringPiI2CReadReg8(fd, (bits & ~ENABLE));
 	delayMicroseconds(500);
 }
+
 
 
 void lcd_byte(int bits, int mode) {
@@ -40,22 +31,46 @@ void lcd_byte(int bits, int mode) {
 }
 
 
+
+/**
+ * Clear the display
+ */
 void lcd_clear() {
 	lcd_byte(0x01, LCD_CMD);
 	lcd_byte(0x02, LCD_CMD);
 }
 
+
+
+/**
+ * Locate crsr at line
+ */
+void lcd_loc(int line) {
+    lcd_byte(line, LCD_CMD);
+}
+
+
+
+/**
+ * Output string on LCD display
+ */
 void lcd_puts(const char *str) {
-	while (*str) {
+    int i;
+    for (i = 0; i < 16 && *str; i++) {
 		lcd_byte(*(str++), LCD_CHR);
 	}
 }
 
 
+/**
+ * Initialize LCD display
+ */
 int lcd_init() {
+    /*
 	if (wiringPiSetup() == -1) {
 		return -1;
 	}
+    */
 
 	fd = wiringPiI2CSetup(I2C_ADDRESS);
 
