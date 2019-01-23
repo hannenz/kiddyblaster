@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <syslog.h>
 #include <sys/stat.h>
@@ -21,7 +22,7 @@
 #include <mpd/client.h>
 #include <mpd/connection.h>
 
-#include <wiringPi.h>
+#include <pigpio.h>
 
 #include "i2c_lcd.h"
 #include "player.h"
@@ -48,88 +49,53 @@ static void start_daemon(const char*, int);
 
 
 
-static void on_button_1_pressed() {
+static void on_button_pressed(int pin, int level, uint32_t tick) {
+    uint32_t duration[2];
+    static uint32_t t0[2];
 
-    unsigned long duration;
-    static unsigned long button_pressed_timestamp;
-    int level;
-
-    delay(100);
-
-    level = digitalRead(BUTTON_1_PIN);
-
-    if (level == LOW) {
-        button_pressed_timestamp = millis();
+    if (level == 0) {
+        //button has been pressed
+        t0[pin] = tick;
     }
     else {
-        duration = millis() - button_pressed_timestamp;
-        button_pressed_timestamp = millis();
+        // button has been released
+        duration[pin] = (tick - t0[pin]) / 1000;
+        t0[pin] = tick;
 
-        if (duration < 100) {
-            // debounce...
-            return;
+        if (duration[pin] < 700) {
+            switch (pin) {
+                case BUTTON_1_PIN:
+                    syslog(LOG_NOTICE, "|| TOGGLE\n");
+                    player_toggle();
+                    break;
+                case BUTTON_2_PIN:
+                    syslog(LOG_NOTICE, ">> NEXT\n");
+                    player_next();
+                    break;
+            }
         }
-        else if (duration < 700) {
-            syslog(LOG_NOTICE, "|| TOGGLE\n");
-            player_toggle();
-        }
-        else if (duration < 5000) {
-            // Not implemented yet... later maybe "Card Write Mode"
-        }
-        else {
-            //
-        }
-
-        update_lcd();
-    }
-}
-
-
-
-/**
- * Callback, on button 2 pressed
- *
- * Performs either a next / previous
- * depending on the press duration
- */
-static void on_button_2_pressed() {
-    
-    unsigned long duration;
-    static unsigned long button_pressed_timestamp;
-    int level;
-
-    delay(100);
-
-    level = digitalRead(BUTTON_2_PIN);
-
-    if (level == LOW) {
-        button_pressed_timestamp = millis();
-    }
-    else {
-        duration = millis() - button_pressed_timestamp;
-        button_pressed_timestamp = millis();
-
-        if (duration < 100) {
-            // debounce...
-            return;
-        }
-        else if (duration < 700) {
-            syslog(LOG_NOTICE, ">> NEXT\n");
-            //printf( ">> NEXT\n");
-            player_next();
-        }
-        else if (duration < 3000) {
-            syslog(LOG_NOTICE, "<< PREV\n");
-            //printf( "<< PREV\n");
-            player_previous();
+        else if (duration[pin] < 5000) {
+            switch (pin) {
+                case BUTTON_1_PIN:
+                    // Not implemented yet... later maybe "Card Write Mode"
+                    break;
+                case BUTTON_2_PIN:
+                    syslog(LOG_NOTICE, ">> PREV\n");
+                    player_previous();
+                    break;
+            }
         }
         else {
-            syslog(LOG_NOTICE, "!! RESTART\n");
-            //printf( "!! RESTART\n");
- 
-            //systemd will respawn us!
-            exit(0);
+            switch (pin) {
+                case BUTTON_1_PIN:
+                    break;
+                case BUTTON_2_PIN:
+                    syslog(LOG_NOTICE, "() RESTART\n");
+                    exit(0);
+                    break;
+            }
         }
+
         update_lcd();
     }
 }
@@ -236,35 +202,29 @@ static void start_daemon(const char *log_name, int facility) {
 
 
 int main() {
-    int check;
 
-    if (FALSE)
+    if (false)
         start_daemon(DAEMON_NAME, LOG_LOCAL0);
 
     // Setup WiringPi Lib
-    check = wiringPiSetupGpio();
-    if (check != 0) {
+
+    if (gpioInitialise() < 0) {
         syslog(LOG_ERR, "Failed to initializ GPIO\n");
     }
 
-    pinMode(BUTTON_1_PIN, INPUT);
-    pinMode(BUTTON_2_PIN, INPUT);
-
-    pullUpDnControl(BUTTON_1_PIN, PUD_UP);
-    pullUpDnControl(BUTTON_2_PIN, PUD_UP);
+    gpioSetMode(BUTTON_1_PIN, PI_INPUT);
+    gpioSetMode(BUTTON_2_PIN, PI_INPUT);
+    gpioSetPullUpDown(BUTTON_1_PIN, PI_PUD_UP);
+    gpioSetPullUpDown(BUTTON_2_PIN, PI_PUD_UP);
 
 
     // Register callbacks on button press
-    check = wiringPiISR(BUTTON_1_PIN, INT_EDGE_BOTH, &on_button_1_pressed);
-    if (check != 0) {
-        syslog(LOG_ERR, "Failed to register callback for button #1\n");
-        //fprintf(stderr, "wiringPiISR() failed\n");
-    }
-    check = wiringPiISR(BUTTON_2_PIN, INT_EDGE_BOTH, &on_button_2_pressed);
-    if (check != 0) {
-        syslog(LOG_ERR, "Failed to register callback for button #2\n");
-        //fprintf(stderr, "wiringPiISR() failed\n");
-    }
+
+    gpioGlitchFilter(BUTTON_1_PIN, 150000);
+    gpioGlitchFilter(BUTTON_2_PIN, 150000);
+
+    gpioSetAlertFunc(BUTTON_1_PIN, &on_button_pressed);
+    gpioSetAlertFunc(BUTTON_2_PIN, &on_button_pressed);
 
     // Init LCD display
     lcd_init();
@@ -297,7 +257,7 @@ int main() {
         }
         syslog(LOG_NOTICE, buffer);
 
-        delay(500);
+        gpioDelay(500000);
     }
 
     syslog(LOG_NOTICE, "Daemon has terminated\n");

@@ -1,16 +1,15 @@
-#include <wiringPiI2C.h>
-#include <wiringPi.h>
+#include <pigpio.h>
 #include "i2c_lcd.h"
 
 int fd;
 
 void lcd_toggle_enable(int bits) {
 	// Toggle enable pin on LCD display
-	delayMicroseconds(500);
-	wiringPiI2CReadReg8(fd, (bits | ENABLE));
-	delayMicroseconds(500);
-	wiringPiI2CReadReg8(fd, (bits & ~ENABLE));
-	delayMicroseconds(500);
+    gpioDelay(500);
+    i2cReadByteData(fd, bits | ENABLE);
+    gpioDelay(500);
+    i2cReadByteData(fd, bits & ~ENABLE);
+    gpioDelay(500);
 }
 
 
@@ -18,16 +17,15 @@ void lcd_toggle_enable(int bits) {
 void lcd_byte(int bits, int mode) {
 	// Send byte to data pin
 	
-	int bits_high, bits_low;
+    int bits_hi, bits_lo;
 
-	bits_high = mode | (bits & 0xf0) | LCD_BACKLIGHT;
-	bits_low = mode | ((bits << 4) & 0xf0) | LCD_BACKLIGHT;
+    bits_hi = mode | (bits & 0xf0) | LCD_BACKLIGHT;
+    bits_lo = mode | ((bits << 4) & 0xf0) | LCD_BACKLIGHT;
 
-	wiringPiI2CReadReg8(fd, bits_high);
-	lcd_toggle_enable(bits_high);
-
-	wiringPiI2CReadReg8(fd, bits_low);
-	lcd_toggle_enable(bits_low);
+    i2cReadByteData(fd, bits_hi);
+    lcd_toggle_enable(bits_hi);
+    i2cReadByteData(fd, bits_lo);
+    lcd_toggle_enable(bits_lo);
 }
 
 
@@ -65,22 +63,22 @@ void lcd_puts(const char *str) {
 /**
  * Initialize LCD display
  */
-int lcd_init() {
-    /*
-	if (wiringPiSetup() == -1) {
-		return -1;
-	}
-    */
+void lcd_init() {
 
-	fd = wiringPiI2CSetup(I2C_ADDRESS);
+    fd = i2cOpen(I2C_BUS, I2C_ADDRESS, 0);
 
-	lcd_byte(0x33, LCD_CMD);
-	lcd_byte(0x32, LCD_CMD);
-	lcd_byte(0x06, LCD_CMD);
-	lcd_byte(0x0c, LCD_CMD);
-	lcd_byte(0x28, LCD_CMD);
-	lcd_byte(0x01, LCD_CMD);
-	delayMicroseconds(500);
-
-	return 0;
+    // Init LCD
+    int i;
+    unsigned const char init_sequence[] = {
+        0x33,
+        0x32,
+        0x06,
+        0x0c,
+        0x28,
+        0x01
+    };
+    for (i = 0; i < 6; i++) {
+        lcd_byte(init_sequence[i], LCD_CMD);
+    }
+    gpioDelay(500);
 }

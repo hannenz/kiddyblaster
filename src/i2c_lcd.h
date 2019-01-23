@@ -1,6 +1,7 @@
 #ifndef __I2C_LCD_H__
 #define __I2C_LCD_H__
 
+#define I2C_BUS 1
 #define I2C_ADDRESS 0x27 // I2C device address
 #define LCD_CHR 1 // Mode - sending data
 #define LCD_CMD 0 // Mode - sending command
@@ -13,7 +14,7 @@
 
 
 
-int lcd_init();
+void lcd_init();
 void lcd_clear();
 void lcd_loc();
 void lcd_crsr();
