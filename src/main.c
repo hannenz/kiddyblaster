@@ -71,7 +71,7 @@ static void on_button_1_pressed() {
         }
         else if (duration < 700) {
             syslog(LOG_NOTICE, "|| TOGGLE\n");
-            //player_toggle();
+            player_toggle();
         }
         else if (duration < 5000) {
             // Not implemented yet... later maybe "Card Write Mode"
@@ -141,7 +141,7 @@ static void on_button_2_pressed() {
  */
 void update_lcd() {
     struct mpd_connection *mpd;
-    char str[10], *states[] = { "??", "..", "|>", "||" };
+    char str[16], *states[] = { "??", "..", "|>", "||" };
     int n, m;
 
     mpd = mpd_connection_new("localhost", 6600, 0);
@@ -252,6 +252,7 @@ int main() {
 
     pullUpDnControl(BUTTON_1_PIN, PUD_UP);
     pullUpDnControl(BUTTON_2_PIN, PUD_UP);
+
 
     // Register callbacks on button press
     check = wiringPiISR(BUTTON_1_PIN, INT_EDGE_BOTH, &on_button_1_pressed);
