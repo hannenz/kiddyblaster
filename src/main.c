@@ -37,19 +37,31 @@ typedef void (*sighandler_t)(int);
 #define BUTTON_1_PIN 26 
 #define BUTTON_2_PIN 4
 
-
+#define SLEEP_TIMER 30 * 60
 
 extern Uid uid;
 
+int timer;  // seconds 
+int micros;
+bool is_sleeping = false;
 
 
 // Prototypes
 void update_lcd();
 static void start_daemon(const char*, int);
 
+static void reset_timer() {
+    if (gpioTime(PI_TIME_RELATIVE, &timer, &micros) < 0) {
+        syslog(LOG_ERR, "Failed to get time\n");
+    }
+}
 
-static void gotoSleep() {
+static void goto_sleep() {
+    is_sleeping = true;
     syslog(LOG_NOTICE, "ZZ Going to sleep\n");
+    lcd_clear();
+    lcd_loc(LCD_LINE_1);
+    lcd_puts("Gute Nacht  [ZZ]");
     player_pause();
 }
 
@@ -102,12 +114,17 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                     break;
             }
         }
+ 
+        // Reset sleep timer
+        reset_timer();
+
+        // "wake up"
+        //if (is_sleeping) {
+            is_sleeping = false;
+        //}
+
 
         update_lcd();
-
-        // reset sleep timer
-        gpioSetTimerFunc(0, 0, NULL);
-        gpioSetTimerFunc(0, 30 * 60 * 1000, &gotoSleep);
     }
 }
 
@@ -211,6 +228,35 @@ static void start_daemon(const char *log_name, int facility) {
 }
 
 
+void* read_cards(void *udata) {
+    while(1) {
+        // Check for a new rfid card
+        if (!mfrc522_picc_is_new_card_present()) {
+            continue;
+        }
+
+        if (!mfrc522_picc_read_card_serial()) {
+            continue;
+        }
+
+
+        // This is the default key for authentication
+        MIFARE_Key key = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }};
+        
+        // Authenticate
+        if(mfrc522_pcd_authenticate(PICC_CMD_MF_AUTH_KEY_A, 8, &key, &uid) != STATUS_OK) {
+            syslog(LOG_ERR, "Failed to authenticate\n");
+            continue;
+        }
+
+        byte data[4];
+        mfrc522_pcd_read_register_multi(8, sizeof(data), data, 1);
+        mfrc522_pcd_stop_crypto_1();
+        syslog(LOG_NOTICE, "%02x %02x %02x %02x\n", data[0], data[1], data[2], data[3]);
+
+        gpioDelay(500000);
+    }
+}
 
 int main() {
 
@@ -223,57 +269,60 @@ int main() {
         syslog(LOG_ERR, "Failed to initializ GPIO\n");
     }
 
+    // Init LCD display
+    lcd_init();
+    update_lcd();
+
+    // Init MFRC522 card reader
+    mfrc522_init();
+    mfrc522_pcd_init();
+
+    // Setup buttons
     gpioSetMode(BUTTON_1_PIN, PI_INPUT);
     gpioSetMode(BUTTON_2_PIN, PI_INPUT);
     gpioSetPullUpDown(BUTTON_1_PIN, PI_PUD_UP);
     gpioSetPullUpDown(BUTTON_2_PIN, PI_PUD_UP);
 
+    // Wait a second to avoid false button triggers
+    gpioDelay(1000000);
 
     // Register callbacks on button press
-
     gpioGlitchFilter(BUTTON_1_PIN, 150000);
     gpioGlitchFilter(BUTTON_2_PIN, 150000);
 
     gpioSetAlertFunc(BUTTON_1_PIN, &on_button_pressed);
     gpioSetAlertFunc(BUTTON_2_PIN, &on_button_pressed);
 
-    // Init LCD display
-    lcd_init();
-    update_lcd();
+    // Setup sleep timer
+    reset_timer();
 
-
-    // Init MFRC522 card reader
-    mfrc522_init();
-    mfrc522_pcd_init();
-
-    // Start timer for sleep-mode (auto-pause after 30 min.)
-    gpioSetTimerFunc(0, 30 * 60 * 1000, &gotoSleep);
+    // Start an own thread for reading RFID cards
+    pthread_t *card_reader = gpioStartThread(read_cards, NULL);
 
     // Start an endless loop
     for (;;) {
-        if (!mfrc522_picc_is_new_card_present()) {
+        int now, seconds_left;
+        //gpioDelay(500000);
+        gpioSleep(PI_TIME_RELATIVE, 2, 0);
+
+        if (is_sleeping) {
             continue;
         }
-        if (!mfrc522_picc_read_card_serial()) {
+        if (gpioTime(PI_TIME_RELATIVE, &now, &micros) < 0) {
+            syslog(LOG_ERR, "Failed to get time\n");
             continue;
         }
 
-        int i;
-        char b[4], buffer[32] = "";
-        for (i = 0; i < uid.size; i++) {
-            if (uid.uidByte[i] < 0x10) {
-                snprintf(b, 4, " 0%X", uid.uidByte[i]);
-            }
-            else {
-                snprintf(b, 4, " %X", uid.uidByte[i]);
-            }
-            strncat(buffer, b, 32);
+        seconds_left = SLEEP_TIMER - (now - timer);
+        syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60);
+        if (now - timer >= SLEEP_TIMER) {
+            goto_sleep();
+            timer = now;
         }
-        syslog(LOG_NOTICE, buffer);
-
-        gpioDelay(500000);
     }
 
+    // Clean up and terminate
+    gpioStopThread(card_reader);
     syslog(LOG_NOTICE, "Daemon has terminated\n");
     closelog();
     return 0;

@@ -51,7 +51,7 @@ void player_pause() {
         return;
     }
 
-    //mpd_run_pause(mpd);
+    mpd_run_pause(mpd, true);
 
     mpd_connection_free(mpd);
 }
