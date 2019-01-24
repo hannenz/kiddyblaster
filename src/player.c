@@ -42,6 +42,21 @@ void player_toggle() {
     mpd_connection_free(mpd);
 }
 
+void player_pause() {
+    struct mpd_connection *mpd;
+
+    mpd = mpd_connection_new("localhost", 6600, 0);
+    if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        return;
+    }
+
+    //mpd_run_pause(mpd);
+
+    mpd_connection_free(mpd);
+}
+
+
 void player_next() {
     struct mpd_connection *mpd;
 

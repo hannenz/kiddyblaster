@@ -48,6 +48,13 @@ void update_lcd();
 static void start_daemon(const char*, int);
 
 
+static void gotoSleep() {
+    syslog(LOG_NOTICE, "ZZ Going to sleep\n");
+    player_pause();
+}
+
+
+
 
 static void on_button_pressed(int pin, int level, uint32_t tick) {
     uint32_t duration[2];
@@ -97,6 +104,10 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
         }
 
         update_lcd();
+
+        // reset sleep timer
+        gpioSetTimerFunc(0, 0, NULL);
+        gpioSetTimerFunc(0, 30 * 60 * 1000, &gotoSleep);
     }
 }
 
@@ -234,6 +245,9 @@ int main() {
     // Init MFRC522 card reader
     mfrc522_init();
     mfrc522_pcd_init();
+
+    // Start timer for sleep-mode (auto-pause after 30 min.)
+    gpioSetTimerFunc(0, 30 * 60 * 1000, &gotoSleep);
 
     // Start an endless loop
     for (;;) {
