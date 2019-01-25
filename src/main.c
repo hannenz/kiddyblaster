@@ -11,6 +11,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/types.h>
@@ -26,7 +27,8 @@
 
 #include "i2c_lcd.h"
 #include "player.h"
-#include "mfrc522.h"
+/* #include "mfrc522.h" */
+#include "card_reader.h"
 
 typedef void (*sighandler_t)(int);
 
@@ -39,7 +41,6 @@ typedef void (*sighandler_t)(int);
 
 #define SLEEP_TIMER 30 * 60
 
-extern Uid uid;
 
 int timer;  // seconds 
 int micros;
@@ -228,35 +229,11 @@ static void start_daemon(const char *log_name, int facility) {
 }
 
 
-void* read_cards(void *udata) {
-    while(1) {
-        // Check for a new rfid card
-        if (!mfrc522_picc_is_new_card_present()) {
-            continue;
-        }
+static void on_card_detected(int card_id) {
 
-        if (!mfrc522_picc_read_card_serial()) {
-            continue;
-        }
-
-
-        // This is the default key for authentication
-        MIFARE_Key key = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }};
-        
-        // Authenticate
-        if(mfrc522_pcd_authenticate(PICC_CMD_MF_AUTH_KEY_A, 8, &key, &uid) != STATUS_OK) {
-            syslog(LOG_ERR, "Failed to authenticate\n");
-            continue;
-        }
-
-        byte data[4];
-        mfrc522_pcd_read_register_multi(8, sizeof(data), data, 1);
-        mfrc522_pcd_stop_crypto_1();
-        syslog(LOG_NOTICE, "%02x %02x %02x %02x\n", data[0], data[1], data[2], data[3]);
-
-        gpioDelay(500000);
-    }
+    syslog(LOG_NOTICE, "Card #%u has been detected!\n", card_id);
 }
+
 
 int main() {
 
@@ -274,8 +251,7 @@ int main() {
     update_lcd();
 
     // Init MFRC522 card reader
-    mfrc522_init();
-    mfrc522_pcd_init();
+    card_reader_init();
 
     // Setup buttons
     gpioSetMode(BUTTON_1_PIN, PI_INPUT);
@@ -297,7 +273,7 @@ int main() {
     reset_timer();
 
     // Start an own thread for reading RFID cards
-    pthread_t *card_reader = gpioStartThread(read_cards, NULL);
+    pthread_t *card_reader = gpioStartThread(read_cards, &on_card_detected);
 
     // Start an endless loop
     for (;;) {
