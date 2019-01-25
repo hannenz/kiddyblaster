@@ -6,5 +6,6 @@ void player_toggle();
 void player_pause();
 void player_next();
 void player_previous();
+void player_play_uri(const char *uri);
 
 #endif

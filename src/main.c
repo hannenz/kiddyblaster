@@ -29,6 +29,7 @@
 #include "player.h"
 /* #include "mfrc522.h" */
 #include "card_reader.h"
+#include "card.h"
 
 typedef void (*sighandler_t)(int);
 
@@ -229,9 +230,22 @@ static void start_daemon(const char *log_name, int facility) {
 }
 
 
+
 static void on_card_detected(int card_id) {
 
-    syslog(LOG_NOTICE, "Card #%u has been detected!\n", card_id);
+    Card *card = card_read(card_id);
+    if (card != NULL) {
+        syslog(LOG_NOTICE, "Card #%u has been detected: %s!\n", card_id, card->name);
+        if (card->uri[strlen(card->uri) - 1] == '/') {
+            card->uri[strlen(card->uri)] = '\0';
+        }
+
+        player_play_uri(card->uri);
+        update_lcd();
+    }
+    else {
+        syslog(LOG_ERR, "No card found with id #%u\n", card_id);
+    }
 }
 
 
