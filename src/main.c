@@ -388,17 +388,13 @@ int main() {
         }
 
         seconds_left = SLEEP_TIMER - (now - timer);
-        syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60);
+        /* syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60); */
         if (now - timer >= SLEEP_TIMER) {
             goto_sleep();
             timer = now;
         }
     }
 
-    // Clean up and terminate
-    gpioStopThread(card_reader);
-    /* syslog(LOG_NOTICE, "Daemon has terminated\n"); */
-    closelog();
     return 0;
 }
 

@@ -54,8 +54,35 @@ void lcd_loc(int line) {
  */
 void lcd_puts(const char *str) {
     int i;
+    char ch;
     for (i = 0; i < 16 && *str; i++) {
-		lcd_byte(*(str++), LCD_CHR);
+        // Translate Umlaute from UTF-8 to LCD charset codes
+        if (*str == 0xc3) {
+            str++;
+            switch (*str) {
+                case 0xa4:
+                case 0x84:
+                    ch = 0b11100001;
+                    break;
+                case 0xb6:
+                case 0x96:
+                    ch = 0b11101111;
+                    break;
+                case 0xbc:
+                case 0x9c:
+                    ch = 0b11110101;
+                    break;
+                case 0x9f:
+                    ch = 0b11100010;
+                    break;
+            }
+        }
+        else {
+            ch = *str;
+        }
+
+		lcd_byte(ch, LCD_CHR);
+        str++;
 	}
 }
 
