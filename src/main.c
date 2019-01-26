@@ -50,7 +50,6 @@ typedef void (*sighandler_t)(int);
 int timer;  // seconds 
 int micros;
 bool is_sleeping = false;
-pthread_t *card_reader;
 
 
 
@@ -314,11 +313,11 @@ static void on_card_detected(int card_id) {
 /**
  * Clean up on program termination
  */
-static void clean_up() {
-    syslog(LOG_NOTICE, "Cleaning up\n");
-    gpioStopThread(card_reader);
-    closelog();
-}
+/* static void clean_up() { */
+/*     syslog(LOG_NOTICE, "Cleaning up\n"); */
+/*     gpioStopThread(card_reader); */
+/*     closelog(); */
+/* } */
 
 
 
@@ -368,10 +367,11 @@ int main() {
     reset_timer();
 
     // Start an own thread for reading RFID cards
+    pthread_t *card_reader;
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
     // Register clean-up function
-    atexit(clean_up);
+    /* atexit(clean_up); */
 
     // Start an endless loop
     for (;;) {
@@ -394,6 +394,9 @@ int main() {
             timer = now;
         }
     }
+
+    gpioStopThread(card_reader);
+    closelog();
 
     return 0;
 }
