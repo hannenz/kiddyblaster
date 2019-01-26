@@ -15,6 +15,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include <linux/reboot.h>
+#include <sys/reboot.h>
 #include <syslog.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -27,7 +29,6 @@
 
 #include "i2c_lcd.h"
 #include "player.h"
-/* #include "mfrc522.h" */
 #include "card_reader.h"
 #include "card.h"
 
@@ -37,27 +38,55 @@ typedef void (*sighandler_t)(int);
 #define PRG_NAME "kiddyblaster"
 #define DAEMON_NAME "kiddyblasterd"
 
-#define BUTTON_1_PIN 26 
-#define BUTTON_2_PIN 4
+#define BUTTON_1_PIN 23     // PLAY
+#define BUTTON_2_PIN 26     // PREV
+#define BUTTON_3_PIN 4      // NEXT
 
 #define SLEEP_TIMER 30 * 60
 
 
+
+// Globals
 int timer;  // seconds 
 int micros;
 bool is_sleeping = false;
+pthread_t *card_reader;
+
 
 
 // Prototypes
 void update_lcd();
 static void start_daemon(const char*, int);
 
+
+
+/**
+ * Callback which is called periodically to update
+ * the LCD display in case a new track has started
+ */
+static void check_new_song() {
+    // Only check, if player is actually playing...
+    if (player_is_playing()) {
+        update_lcd();
+    }
+}
+
+
+
+/**
+ * Reset the sleep timeout timer
+ */
 static void reset_timer() {
     if (gpioTime(PI_TIME_RELATIVE, &timer, &micros) < 0) {
         syslog(LOG_ERR, "Failed to get time\n");
     }
 }
 
+
+
+/**
+ * Go to sleep mode
+ */
 static void goto_sleep() {
     is_sleeping = true;
     syslog(LOG_NOTICE, "ZZ Going to sleep\n");
@@ -71,48 +100,81 @@ static void goto_sleep() {
 
 
 static void on_button_pressed(int pin, int level, uint32_t tick) {
-    uint32_t duration[2];
-    static uint32_t t0[2];
+    uint32_t duration;
+    static uint32_t t0;
 
     if (level == 0) {
-        //button has been pressed
-        t0[pin] = tick;
+        // button pressed, start counting ...
+        t0 = tick;
     }
     else {
         // button has been released
-        duration[pin] = (tick - t0[pin]) / 1000;
-        t0[pin] = tick;
+        duration = (tick - t0) / 1000;
+        t0 = tick;
 
-        if (duration[pin] < 700) {
+        /*
+         * Short button press (less than 700 ms)
+         */
+        if (duration < 700) {
             switch (pin) {
                 case BUTTON_1_PIN:
                     syslog(LOG_NOTICE, "|| TOGGLE\n");
                     player_toggle();
                     break;
+
                 case BUTTON_2_PIN:
+                    syslog(LOG_NOTICE, "<< PREV\n");
+                    player_previous();
+                    break;
+
+                case BUTTON_3_PIN:
                     syslog(LOG_NOTICE, ">> NEXT\n");
                     player_next();
                     break;
             }
         }
-        else if (duration[pin] < 5000) {
+        /*
+         * Long button press (700 - 5000 ms)
+         */
+        else if (duration < 5000) {
             switch (pin) {
                 case BUTTON_1_PIN:
                     // Not implemented yet... later maybe "Card Write Mode"
                     break;
+
                 case BUTTON_2_PIN:
-                    syslog(LOG_NOTICE, ">> PREV\n");
-                    player_previous();
+                    // Not implemented yet... 
+                    break;
+
+                case BUTTON_3_PIN:
+                    // Not implemented yet... 
                     break;
             }
         }
+        /*
+         * Really long press (> 5 s)
+         */
         else {
             switch (pin) {
                 case BUTTON_1_PIN:
+                    // Power off the musicbox
+                    /* syslog(LOG_NOTICE, ".. SHUTDOWN\n"); */
+                    lcd_clear();
+                    lcd_puts("Tschüß..!");
+                    sync();
+                    reboot(LINUX_REBOOT_CMD_POWER_OFF);
                     break;
+
                 case BUTTON_2_PIN:
+                    // restart the software 
+                    // (we just exit, the application will
+                    // be respawned by systemd)
                     syslog(LOG_NOTICE, "() RESTART\n");
                     exit(0);
+                    break;
+
+                case BUTTON_3_PIN:
+                    // Not implemented yet...
                     break;
             }
         }
@@ -125,7 +187,6 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
             is_sleeping = false;
         //}
 
-
         update_lcd();
     }
 }
@@ -137,7 +198,7 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
  */
 void update_lcd() {
     struct mpd_connection *mpd;
-    char str[16], *states[] = { "??", "..", "|>", "||" };
+    char str[17], *states[] = { "??", "..", "|>", "||" };
     int n, m;
 
     mpd = mpd_connection_new("localhost", 6600, 0);
@@ -161,20 +222,20 @@ void update_lcd() {
 
     // Truncate titles longer than 16 characters
     if (strlen(title) > 16) {
-        title[13] = '.';
-        title[14] = '.';
-        title[15] = '\0';
+        title[16] = '\0';
     }
 
     n = player_get_current_song_nr() + 1;
     m = mpd_status_get_queue_length(status);
     snprintf(str, sizeof(str), "%02u/%02u       [%s]", n, m, states[state]);
 
-    lcd_clear();
+    /* lcd_clear(); */
     lcd_loc(LCD_LINE_1);
     lcd_puts(str);
+
+    snprintf(str, sizeof(str), "%-16s", title);
     lcd_loc(LCD_LINE_2);
-    lcd_puts(title);
+    lcd_puts(str);
 
     mpd_status_free(status);
     mpd_connection_free(mpd);
@@ -249,13 +310,24 @@ static void on_card_detected(int card_id) {
 }
 
 
+
+/**
+ * Clean up on program termination
+ */
+static void clean_up() {
+    syslog(LOG_NOTICE, "Cleaning up\n");
+    gpioStopThread(card_reader);
+    closelog();
+}
+
+
+
 int main() {
 
     if (false)
         start_daemon(DAEMON_NAME, LOG_LOCAL0);
 
     // Setup WiringPi Lib
-
     if (gpioInitialise() < 0) {
         syslog(LOG_ERR, "Failed to initializ GPIO\n");
     }
@@ -270,8 +342,10 @@ int main() {
     // Setup buttons
     gpioSetMode(BUTTON_1_PIN, PI_INPUT);
     gpioSetMode(BUTTON_2_PIN, PI_INPUT);
+    gpioSetMode(BUTTON_3_PIN, PI_INPUT);
     gpioSetPullUpDown(BUTTON_1_PIN, PI_PUD_UP);
     gpioSetPullUpDown(BUTTON_2_PIN, PI_PUD_UP);
+    gpioSetPullUpDown(BUTTON_3_PIN, PI_PUD_UP);
 
     // Wait a second to avoid false button triggers
     gpioDelay(1000000);
@@ -279,21 +353,31 @@ int main() {
     // Register callbacks on button press
     gpioGlitchFilter(BUTTON_1_PIN, 150000);
     gpioGlitchFilter(BUTTON_2_PIN, 150000);
+    gpioGlitchFilter(BUTTON_3_PIN, 150000);
 
     gpioSetAlertFunc(BUTTON_1_PIN, &on_button_pressed);
     gpioSetAlertFunc(BUTTON_2_PIN, &on_button_pressed);
+    gpioSetAlertFunc(BUTTON_3_PIN, &on_button_pressed);
+
+    // Periodically check if a new song has started
+    // and update the LCD
+    gpioSetTimerFunc(0, 2000, &check_new_song);
+
 
     // Setup sleep timer
     reset_timer();
 
     // Start an own thread for reading RFID cards
-    pthread_t *card_reader = gpioStartThread(read_cards, &on_card_detected);
+    card_reader = gpioStartThread(read_cards, &on_card_detected);
+
+    // Register clean-up function
+    atexit(clean_up);
 
     // Start an endless loop
     for (;;) {
         int now, seconds_left;
-        //gpioDelay(500000);
-        gpioSleep(PI_TIME_RELATIVE, 2, 0);
+        gpioDelay(2000000);
+        //gpioSleep(PI_TIME_RELATIVE, 2, 0);
 
         if (is_sleeping) {
             continue;
@@ -313,7 +397,8 @@ int main() {
 
     // Clean up and terminate
     gpioStopThread(card_reader);
-    syslog(LOG_NOTICE, "Daemon has terminated\n");
+    /* syslog(LOG_NOTICE, "Daemon has terminated\n"); */
     closelog();
     return 0;
 }
+

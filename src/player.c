@@ -4,6 +4,34 @@
 #include <syslog.h>
 #include "player.h"
 
+
+bool player_is_playing() {
+    struct mpd_connection *mpd;
+    struct mpd_status *status;
+    int state;
+
+    mpd = mpd_connection_new("localhost", 6600, 0);
+    if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        return -1;
+    }
+
+    status = mpd_run_status(mpd);
+    if (status == NULL) {
+        syslog(LOG_ERR, "Failed to get mpd status\n");
+        return -1;
+    }
+
+    state = mpd_status_get_state(status);
+
+    mpd_status_free(status);
+    mpd_connection_free(mpd);
+
+    return state == MPD_STATE_PLAY;
+}
+
+
+
 int player_get_current_song_nr() {
     struct mpd_connection *mpd;
 

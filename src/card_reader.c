@@ -51,7 +51,7 @@ void* read_cards(void *callback) {
         }
 
         byte data[32];
-        int size = sizeof(data);
+        byte size = sizeof(data);
         /* mfrc522_pcd_read_register_multi(8, sizeof(data), data, 1); */
         mfrc522_mifare_read(8, data, &size);
         mfrc522_pcd_stop_crypto_1();
