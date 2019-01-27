@@ -44,12 +44,20 @@ typedef void (*sighandler_t)(int);
 
 #define SLEEP_TIMER 30 * 60
 
+// Timer NRs for different gpioSetTimer calls
+enum {
+    TIMER_NR_BACKLIGHT,
+    TIMER_NR_CHECK_SONG,
+    TIMER_NR_SLEEP
+};
 
+#define BACKLIGHT_OFF_TIMEOUT 15000
 
 // Globals
-int timer;  // seconds 
-int micros;
+int timer = 0;  // seconds 
+int micros;     // dummy, unused but we need it to pass to gpioTime()
 bool is_sleeping = false;
+int current_song = 0;
 
 
 
@@ -59,15 +67,32 @@ static void start_daemon(const char*, int);
 
 
 
+static void backlight_off() {
+    syslog(LOG_NOTICE, "CB: Backlight Off\n");
+    lcd_set_backlight(false);
+    // Turn off timer
+    gpioSetTimerFunc(TIMER_NR_BACKLIGHT, BACKLIGHT_OFF_TIMEOUT, NULL);
+}
+
+
+
 /**
  * Callback which is called periodically to update
  * the LCD display in case a new track has started
  */
 static void check_new_song() {
     // Only check, if player is actually playing...
-    if (player_is_playing()) {
-        update_lcd();
+    if (!player_is_playing()) {
+        return;
     }
+
+    int n = player_get_current_song_nr();
+    if (n == current_song) {
+        return;
+    }
+
+    current_song = n;
+    update_lcd();
 }
 
 
@@ -90,8 +115,8 @@ static void goto_sleep() {
     is_sleeping = true;
     syslog(LOG_NOTICE, "ZZ Going to sleep\n");
     lcd_clear();
-    lcd_loc(LCD_LINE_1);
-    lcd_puts("Gute Nacht  [ZZ]");
+    lcd_puts(LCD_LINE_1, "Gute Nacht  [ZZ]");
+    lcd_set_backlight(false);
     player_pause();
 }
 
@@ -159,9 +184,9 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                     // Power off the musicbox
                     /* syslog(LOG_NOTICE, ".. SHUTDOWN\n"); */
                     lcd_clear();
-                    lcd_puts("Tschüß..!");
-                    sync();
-                    reboot(LINUX_REBOOT_CMD_POWER_OFF);
+                    lcd_puts(LCD_LINE_1, "Tschüß..!");
+                    /* sync(); */
+                    /* reboot(LINUX_REBOOT_CMD_POWER_OFF); */
                     break;
 
                 case BUTTON_2_PIN:
@@ -187,6 +212,8 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
         //}
 
         update_lcd();
+        lcd_set_backlight(true);
+        gpioSetTimerFunc(TIMER_NR_BACKLIGHT, BACKLIGHT_OFF_TIMEOUT, &backlight_off);
     }
 }
 
@@ -220,24 +247,23 @@ void update_lcd() {
     title = (char*)mpd_song_get_tag(song, MPD_TAG_TITLE, 0);
 
     // Truncate titles longer than 16 characters
-    if (strlen(title) > 16) {
-        title[16] = '\0';
-    }
+    /* if (strlen(title) > 16) { */
+    /*     title[16] = '\0'; */
+    /* } */
 
-    n = player_get_current_song_nr() + 1;
+    n = mpd_status_get_song_pos(status); //player_get_current_song_nr() + 1;
+
+
     m = mpd_status_get_queue_length(status);
-    snprintf(str, sizeof(str), "%02u/%02u       [%s]", n, m, states[state]);
-
-    /* lcd_clear(); */
-    lcd_loc(LCD_LINE_1);
-    lcd_puts(str);
-
-    snprintf(str, sizeof(str), "%-16s", title);
-    lcd_loc(LCD_LINE_2);
-    lcd_puts(str);
 
     mpd_status_free(status);
     mpd_connection_free(mpd);
+
+    snprintf(str, sizeof(str), "%02u/%02u       [%s]", n, m, states[state]);
+    lcd_puts(LCD_LINE_1, str);
+
+    snprintf(str, sizeof(str), "%-16s", title);
+    lcd_puts(LCD_LINE_2, str);
 }
 
 
@@ -310,16 +336,6 @@ static void on_card_detected(int card_id) {
 
 
 
-/**
- * Clean up on program termination
- */
-/* static void clean_up() { */
-/*     syslog(LOG_NOTICE, "Cleaning up\n"); */
-/*     gpioStopThread(card_reader); */
-/*     closelog(); */
-/* } */
-
-
 
 int main() {
 
@@ -350,9 +366,9 @@ int main() {
     gpioDelay(1000000);
 
     // Register callbacks on button press
-    gpioGlitchFilter(BUTTON_1_PIN, 150000);
-    gpioGlitchFilter(BUTTON_2_PIN, 150000);
-    gpioGlitchFilter(BUTTON_3_PIN, 150000);
+    gpioGlitchFilter(BUTTON_1_PIN, 100000);
+    gpioGlitchFilter(BUTTON_2_PIN, 100000);
+    gpioGlitchFilter(BUTTON_3_PIN, 100000);
 
     gpioSetAlertFunc(BUTTON_1_PIN, &on_button_pressed);
     gpioSetAlertFunc(BUTTON_2_PIN, &on_button_pressed);
@@ -360,8 +376,10 @@ int main() {
 
     // Periodically check if a new song has started
     // and update the LCD
-    gpioSetTimerFunc(0, 2000, &check_new_song);
+    gpioSetTimerFunc(TIMER_NR_CHECK_SONG, 5000, &check_new_song);
 
+    // Switch backlight off after N seconds
+    gpioSetTimerFunc(TIMER_NR_BACKLIGHT, BACKLIGHT_OFF_TIMEOUT, &backlight_off);
 
     // Setup sleep timer
     reset_timer();
@@ -376,8 +394,8 @@ int main() {
     // Start an endless loop
     for (;;) {
         int now, seconds_left;
-        gpioDelay(2000000);
-        //gpioSleep(PI_TIME_RELATIVE, 2, 0);
+        /* gpioDelay(5000000); */
+        gpioSleep(PI_TIME_RELATIVE, 5, 0);
 
         if (is_sleeping) {
             continue;
@@ -388,13 +406,17 @@ int main() {
         }
 
         seconds_left = SLEEP_TIMER - (now - timer);
-        /* syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60); */
+        syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60);
         if (now - timer >= SLEEP_TIMER) {
             goto_sleep();
             timer = now;
         }
     }
 
+    lcd_clear();
+    lcd_puts(LCD_LINE_1, "Bye bye!");
+
+    // Clean-up and terminate
     gpioStopThread(card_reader);
     closelog();
 

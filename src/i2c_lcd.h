@@ -16,8 +16,9 @@
 
 void lcd_init();
 void lcd_clear();
-void lcd_loc();
-void lcd_crsr();
-void lcd_puts();
+void lcd_loc(int line);
+void lcd_puts(int line, const char *str);
+void lcd_toggle_enable(int bits);
+void lcd_set_backlight(int backlight);
 
 #endif

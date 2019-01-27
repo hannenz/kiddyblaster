@@ -3,6 +3,25 @@
 
 int fd;
 
+/*
+ * Store content of LCD locally to
+ * reprint with backlight off
+ */
+char content[2][16];
+
+int backlight = 0x08;
+
+
+
+void lcd_set_backlight(int bl) {
+    backlight = bl ? 0x08 : 0x00;
+
+    // reprint
+    lcd_puts(LCD_LINE_1, content[0]);
+    lcd_puts(LCD_LINE_2, content[1]);
+}
+
+
 void lcd_toggle_enable(int bits) {
 	// Toggle enable pin on LCD display
     gpioDelay(500);
@@ -13,14 +32,16 @@ void lcd_toggle_enable(int bits) {
 }
 
 
+// Send byte to data pins
+// @param int bits      The data
+// @param int mode      1 = data, 0 = command
 
 void lcd_byte(int bits, int mode) {
-	// Send byte to data pin
 	
     int bits_hi, bits_lo;
 
-    bits_hi = mode | (bits & 0xf0) | LCD_BACKLIGHT;
-    bits_lo = mode | ((bits << 4) & 0xf0) | LCD_BACKLIGHT;
+    bits_hi = mode | (bits & 0xf0) | backlight;
+    bits_lo = mode | ((bits << 4) & 0xf0) | backlight;
 
     i2cReadByteData(fd, bits_hi);
     lcd_toggle_enable(bits_hi);
@@ -51,10 +72,14 @@ void lcd_loc(int line) {
 
 /**
  * Output string on LCD display
+ *
+ * @param int           Line (0x80 or 0xc0), use constants LCD_LINE_1 ...
+ * @param const char*   The string to print
  */
-void lcd_puts(const char *str) {
+void lcd_puts(int line, const char *str) {
     int i;
     char ch;
+    lcd_loc(line);
     for (i = 0; i < 16 && *str; i++) {
         // Translate Umlaute from UTF-8 to LCD charset codes
         if (*str == 0xc3) {
@@ -82,6 +107,14 @@ void lcd_puts(const char *str) {
         }
 
 		lcd_byte(ch, LCD_CHR);
+        switch (line) {
+            case LCD_LINE_1:
+                content[0][i] = ch;
+                break;
+            case LCD_LINE_2:
+                content[1][i] = ch;
+                break;
+        }
         str++;
 	}
 }
