@@ -261,7 +261,7 @@ void update_lcd() {
     /*     title[16] = '\0'; */
     /* } */
 
-    n = mpd_status_get_song_pos(status); //player_get_current_song_nr() + 1;
+    n = mpd_status_get_song_pos(status) + 1;
 
 
     m = mpd_status_get_queue_length(status);
