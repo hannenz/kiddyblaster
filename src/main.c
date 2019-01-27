@@ -58,6 +58,7 @@ int timer = 0;  // seconds
 int micros;     // dummy, unused but we need it to pass to gpioTime()
 bool is_sleeping = false;
 int current_song = 0;
+bool running = true;
 
 
 
@@ -68,10 +69,19 @@ static void start_daemon(const char*, int);
 
 
 static void backlight_off() {
-    syslog(LOG_NOTICE, "CB: Backlight Off\n");
-    lcd_set_backlight(false);
-    // Turn off timer
-    gpioSetTimerFunc(TIMER_NR_BACKLIGHT, BACKLIGHT_OFF_TIMEOUT, NULL);
+
+    // Only switch off between 18:00 and 09:00
+    time_t rawtime;
+    struct tm *timeinfo;
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    if (timeinfo->tm_hour > 18 || timeinfo->tm_hour < 9) {
+        lcd_set_backlight(false);
+        // Turn off timer
+        gpioSetTimerFunc(TIMER_NR_BACKLIGHT, BACKLIGHT_OFF_TIMEOUT, NULL);
+    }
 }
 
 
@@ -194,7 +204,7 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                     // (we just exit, the application will
                     // be respawned by systemd)
                     syslog(LOG_NOTICE, "() RESTART\n");
-                    exit(0);
+                    running = false;
                     break;
 
                 case BUTTON_3_PIN:
@@ -392,7 +402,7 @@ int main() {
     /* atexit(clean_up); */
 
     // Start an endless loop
-    for (;;) {
+    while (running) {
         int now, seconds_left;
         /* gpioDelay(5000000); */
         gpioSleep(PI_TIME_RELATIVE, 5, 0);
@@ -417,6 +427,7 @@ int main() {
     lcd_puts(LCD_LINE_1, "Bye bye!");
 
     // Clean-up and terminate
+    syslog(LOG_NOTICE, "Terminating\n");
     gpioStopThread(card_reader);
     closelog();
 
