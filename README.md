@@ -5,11 +5,11 @@ RFID driven musicbox for children
 ## Parts
 
 - RFID-Reader: MFRC522
-- LCD (optional): I2C LCD 
-- USB Audio 
+- LCD (optional): I2C 2x16 LCD 
+- USB Audio / Soundcard
 - Amplifier
 - Speakers
-- Arcade buttons
+- 3 Arcade buttons
 - Potentiometer for volume control
 - RJ52 Jack and short patch cable
 - Case: I've done it with PVC, could also be done with wood or use/upcycle an old plastic case or whatever...
@@ -24,7 +24,24 @@ RFID driven musicbox for children
 
 ## Dependencies
 
-- libmpdclient
-- wiringPi
-- 
+- libmpdclient-dev
+- pigpio
+- bcm2835 (Todo: Get rid of one of the two...)
+- libsqlite3-dev
+- libglib2.0-dev
+
+On raspbian with apt:
+
+```
+sudo apt install libmpdclient-dev libsqlite3-dev libglib2.0-dev
+```
+
+and follow the instructions on `http://www.airspayce.com/mikem/bcm2835/` to install the bcm2835 library
+
+## Installation
+
+Run `make`, then `sudo make install`
+
+## Usage
+
 
