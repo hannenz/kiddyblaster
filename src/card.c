@@ -37,7 +37,6 @@ Card* card_read(int card_id) {
 
     rc = sqlite3_open(DB_FILE, &db);
     if (rc) {
-        syslog(LOG_ERR, "Failed to open sqlite database: %s\n", DB_FILE);
         sqlite3_close(db);
         return NULL;
     }
@@ -45,15 +44,52 @@ Card* card_read(int card_id) {
     snprintf(str, sizeof(str), "SELECT * FROM cards WHERE id=%u LIMIT 1", card_id);
     rc = sqlite3_exec(db, str, callback, card, &error_message);
     if (rc != SQLITE_OK) {
-        syslog(LOG_ERR, "SQL error: %s\n", error_message);
         sqlite3_free(error_message);
+        return NULL;
     }
 
     sqlite3_close(db);
 
-    if (card->id == -1 || card->id != card_id) {
+    if (card->id <= 0 || card->id != card_id) {
         return NULL;
     }
 
     return card;
+}
+
+
+
+int card_write(Card *card) {
+
+    sqlite3 *db;
+    char query[512], *error_message = 0;
+
+    if (sqlite3_open(DB_FILE, &db) != SQLITE_OK) {
+        fprintf(stderr, "Failed to open db: %s\n", DB_FILE);
+        sqlite3_close(db);
+        return -1;
+    }
+
+    if (card->id != 0) {
+        snprintf(query, sizeof(query), "UPDATE cards SET uri='%s', name='%s' WHERE id=%u", card->uri, card->name, card->id);
+        puts(query);
+
+        if (sqlite3_exec(db, query, NULL, NULL, &error_message) != SQLITE_OK) {
+            return -1;
+        }
+
+        return card->id;
+    }
+    else {
+        snprintf(query, sizeof(query), "INSERT INTO cards (uri, name) VALUES ('%s', '%s')", card->uri, card->name);
+        puts(query);
+
+        if (sqlite3_exec(db, query, NULL, NULL, &error_message) != SQLITE_OK) {
+            return -1;
+        }
+
+        return sqlite3_last_insert_rowid(db);
+    }
+
+    sqlite3_close(db);
 }

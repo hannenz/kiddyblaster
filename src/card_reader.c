@@ -35,6 +35,8 @@ void* read_cards(void *callback) {
     int card_id = 0;
 
     while(1) {
+        gpioDelay(500000);
+
         // Check for a new rfid card
         if (!mfrc522_picc_is_new_card_present()) {
             continue;
@@ -62,7 +64,6 @@ void* read_cards(void *callback) {
         callback_t cb = callback;
         cb(card_id);
 
-        gpioDelay(500000);
     }
 }
 

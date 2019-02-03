@@ -9,5 +9,6 @@ typedef struct {
 } Card;
 
 Card* card_read(int card_id);
+int card_write(Card *card);
 
 #endif

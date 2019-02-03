@@ -123,9 +123,14 @@ void player_play_uri(const char *uri) {
         syslog(LOG_ERR, "Failed to connect to mpd\n");
         return;
     }
+
+    syslog(LOG_NOTICE, "Stopping MPD\n");
     mpd_run_stop(mpd);
+    syslog(LOG_NOTICE, "Clearing playlist\n");
     mpd_run_clear(mpd);
+    syslog(LOG_NOTICE, "Adding URI to playlist: '%s'\n", uri);
     mpd_run_add(mpd, uri);
+    syslog(LOG_NOTICE, "Playing playlist\n");
     mpd_run_play(mpd);
 
     mpd_connection_free(mpd);

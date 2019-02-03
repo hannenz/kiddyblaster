@@ -9,11 +9,13 @@
  * @package kiddyblaster
  * @version Sun Jan 20 10:04:57 UTC 2019
  */
+#include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <dirent.h>
 #include <sys/types.h>
 #include <linux/reboot.h>
 #include <sys/reboot.h>
@@ -59,12 +61,16 @@ int micros;     // dummy, unused but we need it to pass to gpioTime()
 bool is_sleeping = false;
 int current_song = 0;
 bool running = true;
+GList *directories;
+GList *selected_dir;
+bool select_mode = false;
 
 
 
 // Prototypes
 void update_lcd();
 static void start_daemon(const char*, int);
+static void read_directories(const char *path, int depth);
 
 
 
@@ -152,18 +158,40 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
         if (duration < 700) {
             switch (pin) {
                 case BUTTON_1_PIN:
-                    syslog(LOG_NOTICE, "|| TOGGLE\n");
-                    player_toggle();
+                    if (select_mode) {
+                        select_mode = false;
+                        char *uri = selected_dir->data;
+                        syslog(LOG_NOTICE, "Playing URI: %s\n", uri);
+                        player_play_uri(uri);
+                    }
+                    else {
+                        syslog(LOG_NOTICE, "|| TOGGLE\n");
+                        player_toggle();
+                    }
                     break;
 
                 case BUTTON_2_PIN:
-                    syslog(LOG_NOTICE, "<< PREV\n");
-                    player_previous();
+                    if (select_mode) {
+                        if (selected_dir->prev != NULL) {
+                            selected_dir = selected_dir->prev;
+                        }
+                    }
+                    else {
+                        syslog(LOG_NOTICE, "<< PREV\n");
+                        player_previous();
+                    }
                     break;
 
                 case BUTTON_3_PIN:
-                    syslog(LOG_NOTICE, ">> NEXT\n");
-                    player_next();
+                    if (select_mode) {
+                        if (selected_dir->next != NULL) {
+                            selected_dir = selected_dir->next;
+                        }
+                    }
+                    else {
+                        syslog(LOG_NOTICE, ">> NEXT\n");
+                        player_next();
+                    }
                     break;
             }
         }
@@ -208,7 +236,13 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                     break;
 
                 case BUTTON_3_PIN:
-                    // Not implemented yet...
+                    syslog(LOG_NOTICE, "Entering WRITE MODE\n");
+                    g_list_free_full(directories, g_free);
+                    directories = NULL;
+                    select_mode = true;
+
+                    read_directories("/home/pi/Music", 0);
+                    selected_dir = directories;
                     break;
             }
         }
@@ -233,47 +267,52 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
  * Update the LCD display
  */
 void update_lcd() {
-    struct mpd_connection *mpd;
-    char str[17], *states[] = { "??", "..", "|>", "||" };
-    int n, m;
-
-    mpd = mpd_connection_new("localhost", 6600, 0);
-    if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
-        return;
+    if (select_mode) {
+        lcd_clear();
+        lcd_puts(LCD_LINE_1, "Select dir      ");
+        if (selected_dir != NULL && selected_dir->data != NULL) {
+            lcd_puts(LCD_LINE_2, selected_dir->data);
+        }
     }
+    else {
+        struct mpd_connection *mpd;
+        char str[17], *states[] = { "??", "..", "|>", "||" };
+        int n, m;
 
-    struct mpd_status *status = mpd_run_status(mpd);
-    if (status == NULL) {
-        syslog(LOG_ERR, "Failed to get mpd status\n");
-        return;
+        mpd = mpd_connection_new("localhost", 6600, 0);
+        if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
+            syslog(LOG_ERR, "Failed to connect to mpd\n");
+            return;
+        }
+
+        struct mpd_status *status = mpd_run_status(mpd);
+        if (status == NULL) {
+            syslog(LOG_ERR, "Failed to get mpd status\n");
+            return;
+        }
+
+        int state = mpd_status_get_state(status);
+        int song_id = mpd_status_get_song_id(status);
+
+        struct mpd_song *song = mpd_run_get_queue_song_id(mpd, song_id);
+        char *title;
+        if (!song) {
+            return;
+        }
+        title = (char*)mpd_song_get_tag(song, MPD_TAG_TITLE, 0);
+
+        n = mpd_status_get_song_pos(status) + 1;
+        m = mpd_status_get_queue_length(status);
+
+        mpd_status_free(status);
+        mpd_connection_free(mpd);
+
+        snprintf(str, sizeof(str), "%02u/%02u       [%s]", n, m, states[state]);
+        lcd_puts(LCD_LINE_1, str);
+
+        snprintf(str, sizeof(str), "%-16s", title);
+        lcd_puts(LCD_LINE_2, str);
     }
-
-    int state = mpd_status_get_state(status);
-    int song_id = mpd_status_get_song_id(status);
-
-    struct mpd_song *song = mpd_run_get_queue_song_id(mpd, song_id);
-    char *title;
-    title = (char*)mpd_song_get_tag(song, MPD_TAG_TITLE, 0);
-
-    // Truncate titles longer than 16 characters
-    /* if (strlen(title) > 16) { */
-    /*     title[16] = '\0'; */
-    /* } */
-
-    n = mpd_status_get_song_pos(status) + 1;
-
-
-    m = mpd_status_get_queue_length(status);
-
-    mpd_status_free(status);
-    mpd_connection_free(mpd);
-
-    snprintf(str, sizeof(str), "%02u/%02u       [%s]", n, m, states[state]);
-    lcd_puts(LCD_LINE_1, str);
-
-    snprintf(str, sizeof(str), "%-16s", title);
-    lcd_puts(LCD_LINE_2, str);
 }
 
 
@@ -336,7 +375,9 @@ static void on_card_detected(int card_id) {
             card->uri[strlen(card->uri)] = '\0';
         }
 
+        syslog(LOG_NOTICE, "Calling player_play_uri(%s)\n", card->uri);
         player_play_uri(card->uri);
+        lcd_set_backlight(true);
         update_lcd();
     }
     else {
@@ -346,13 +387,41 @@ static void on_card_detected(int card_id) {
 
 
 
+static void read_directories(const char *path, int depth) {
+    DIR *dir;
+    struct dirent *ent;
+
+    if ((dir = opendir(path)) == NULL) {
+        return;
+    }
+
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_type == DT_DIR) {
+            if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+                continue;
+            }
+            /* syslog(LOG_INFO, "%s\n", ent->d_name); */
+            /* printf("%*s[%s]\n", depth, "", ent->d_name); */
+            directories = g_list_append(directories, g_strdup(ent->d_name));
+
+            char new_path[1024];
+            snprintf(new_path, sizeof(new_path), "%s/%s", path, ent->d_name);
+            read_directories(new_path, depth + 4);
+        }
+    }
+
+    closedir(dir);
+    return;
+}
+
 
 int main() {
 
     if (false)
         start_daemon(DAEMON_NAME, LOG_LOCAL0);
 
-    // Setup WiringPi Lib
+
+    // Setup pigpio lib
     if (gpioInitialise() < 0) {
         syslog(LOG_ERR, "Failed to initializ GPIO\n");
     }
