@@ -69,7 +69,7 @@ bool select_mode = false;
 
 // Prototypes
 void update_lcd();
-static void start_daemon(const char*, int);
+/* static void start_daemon(const char*, int); */
 static void read_directories(const char *path, int depth);
 
 
@@ -317,53 +317,53 @@ void update_lcd() {
 
 
 
-static sighandler_t handle_signal(int sig_nr, sighandler_t signalhandler) {
-    struct sigaction new_sig, old_sig;
-
-    new_sig.sa_handler = signalhandler;
-    sigemptyset(&new_sig.sa_mask);
-    new_sig.sa_flags = SA_RESTART;
-    if (sigaction(sig_nr, &new_sig, &old_sig) < 0) {
-        return SIG_ERR;
-    }
-    return old_sig.sa_handler;
-}
-
-
-
-static void start_daemon(const char *log_name, int facility) {
-    int i;
-    pid_t pid;
-
-    // Terminate parent process, creating a widow which will be handled by init
-    if ((pid = fork()) != 0) {
-        exit (EXIT_FAILURE);
-    }
-
-    // child process becomes session leader
-    if (setsid() < 0) {
-        printf("%s can not become session leader\n", log_name);
-        exit(EXIT_FAILURE);
-    }
-
-    // Ignore SIGHUP
-    handle_signal(SIGHUP, SIG_IGN);
-
-    // Terminate the child
-    if ((pid = fork()) != 0) {
-        exit(EXIT_FAILURE);
-    }
-
-    chdir("/");
-    umask(0);
-    for (i = sysconf(_SC_OPEN_MAX); i > 0; i--) {
-        close(i);
-    }
-
-    openlog(log_name, LOG_PID | LOG_CONS | LOG_NDELAY, facility);
-    syslog(LOG_NOTICE, "Daemon has been started\n");
-}
-
+/* static sighandler_t handle_signal(int sig_nr, sighandler_t signalhandler) { */
+/*     struct sigaction new_sig, old_sig; */
+/*  */
+/*     new_sig.sa_handler = signalhandler; */
+/*     sigemptyset(&new_sig.sa_mask); */
+/*     new_sig.sa_flags = SA_RESTART; */
+/*     if (sigaction(sig_nr, &new_sig, &old_sig) < 0) { */
+/*         return SIG_ERR; */
+/*     } */
+/*     return old_sig.sa_handler; */
+/* } */
+/*  */
+/*  */
+/*  */
+/* static void start_daemon(const char *log_name, int facility) { */
+/*     int i; */
+/*     pid_t pid; */
+/*  */
+/*     // Terminate parent process, creating a widow which will be handled by init */
+/*     if ((pid = fork()) != 0) { */
+/*         exit (EXIT_FAILURE); */
+/*     } */
+/*  */
+/*     // child process becomes session leader */
+/*     if (setsid() < 0) { */
+/*         printf("%s can not become session leader\n", log_name); */
+/*         exit(EXIT_FAILURE); */
+/*     } */
+/*  */
+/*     // Ignore SIGHUP */
+/*     handle_signal(SIGHUP, SIG_IGN); */
+/*  */
+/*     // Terminate the child */
+/*     if ((pid = fork()) != 0) { */
+/*         exit(EXIT_FAILURE); */
+/*     } */
+/*  */
+/*     chdir("/"); */
+/*     umask(0); */
+/*     for (i = sysconf(_SC_OPEN_MAX); i > 0; i--) { */
+/*         close(i); */
+/*     } */
+/*  */
+/*     openlog(log_name, LOG_PID | LOG_CONS | LOG_NDELAY, facility); */
+/*     syslog(LOG_NOTICE, "Daemon has been started\n"); */
+/* } */
+/*  */
 
 
 static void on_card_detected(int card_id) {
@@ -417,14 +417,15 @@ static void read_directories(const char *path, int depth) {
 
 int main() {
 
-    if (false)
-        start_daemon(DAEMON_NAME, LOG_LOCAL0);
+    /* start_daemon(DAEMON_NAME, LOG_LOCAL0); */
 
 
     // Setup pigpio lib
     if (gpioInitialise() < 0) {
         syslog(LOG_ERR, "Failed to initializ GPIO\n");
     }
+
+    player_pause();
 
     // Init LCD display
     lcd_init();
@@ -444,11 +445,12 @@ int main() {
     // Wait a second to avoid false button triggers
     gpioDelay(1000000);
 
-    // Register callbacks on button press
+    // Set glitch filter to software-debounce buttons
     gpioGlitchFilter(BUTTON_1_PIN, 100000);
     gpioGlitchFilter(BUTTON_2_PIN, 100000);
     gpioGlitchFilter(BUTTON_3_PIN, 100000);
 
+    // Register callbacks on button press
     gpioSetAlertFunc(BUTTON_1_PIN, &on_button_pressed);
     gpioSetAlertFunc(BUTTON_2_PIN, &on_button_pressed);
     gpioSetAlertFunc(BUTTON_3_PIN, &on_button_pressed);
@@ -479,6 +481,8 @@ int main() {
         if (is_sleeping) {
             continue;
         }
+
+        // Get current time
         if (gpioTime(PI_TIME_RELATIVE, &now, &micros) < 0) {
             syslog(LOG_ERR, "Failed to get time\n");
             continue;

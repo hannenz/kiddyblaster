@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sqlite3.h>
-#include <pigpio.h>
+#include "../bcm2835.h" 
 #include "../mfrc522.h"
 #include "../card.h"
 
@@ -26,11 +26,12 @@ int write_card(const char *name, const char *uri) {
     int card_id, i;
 
     printf("About to write:\nname = %s\nuri=%s\n\n", name, uri);
-    printf("Waitng for card ... hold a card near the reader or press CTRL+c to abort\n");
+    printf("Waiting for card - hold a card near the reader or press CTRL+c to abort\n");
 
     for(i = 0; i < 1000 ; i++) {
 
-        gpioDelay(500000);
+        /* gpioDelay(500000); */
+        bcm2835_delay(500);
 
         printf(".");
         fflush(stdout);
@@ -131,29 +132,47 @@ const char *path_to_uri(const char *path) {
 
 
 
+static void usage() {
+    puts("\nUsage: sudo writecard name uri\n");
+	puts("name          Name of the card");
+    puts("uri           Path to the directory relative");
+    puts("              to `/home/pi/Music`, __without__ leading or");
+    puts("              trailing slashes, e.g. `Audiobooks/Das Dschungelbuch`\n");
+	puts("NOTE: writecard must be run with root privileges\n");
+}
+
 int main(int argc, char **argv) {
     const char *uri, *name;
 
-    // Init pigpio
-    if (gpioInitialise() < 0) {
-        fprintf(stderr, "Failed to initialise pigpio\n");
+    if (argc != 3) {
+        usage();
         return -1;
     }
+
+	if (getuid() != 0) {
+		printf("%s must be run as root!\n", argv[0]);
+		return -1;
+	}
+
+
+    /* Init pigpio */
+    /* if (gpioInitialise() < 0) { */
+    /*     fprintf(stderr, "Failed to initialise pigpio\n"); */
+    /*     return -1; */
+    /* } */
+
 
     // Init MFRC522 (RFID card reader)
+    // (which also initializes bcm2835 lib)
     mfrc522_init();
     mfrc522_pcd_init();
-
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s name uri\n", argv[0]);
-        return -1;
-    }
 
     name = argv[1];
     uri = argv[2];
 
     write_card(name, uri);
 
-    gpioTerminate();
+    /* gpioTerminate(); */
+    bcm2835_close();
     return 0;
 }

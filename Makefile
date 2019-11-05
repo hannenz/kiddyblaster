@@ -40,10 +40,13 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 writecard: src/writecard/writecard.c src/card.c src/card.h src/mfrc522.c src/mfrc522.h
 	$(CC) -o $(BUILD_DIR)/writecard src/writecard/writecard.c src/card.c src/mfrc522.c -lsqlite3 -lbcm2835 -lpigpio
 
-install: $(BUILD_DIR)/$(TARGET_EXEC) $(BUILD_DIR)/writecard
+install: 
 	install -m 755 $(BUILD_DIR)/$(TARGET_EXEC) /usr/local/bin/
 	install -m 755 $(BUILD_DIR)/writecard /usr/local/bin/
-	# todo: Install systemd service 
+	# todo:
+	# - Install systemd service (/etc/systemd/system/kiddyblaster.service)
+	# - Install success.wav (/home/pi/success.wav) -> find a better location
+	# - Install cards.sql (/home/pi/cards.sql) -> find a better location
 
 clean:
 	$(RM) -r $(BUILD_DIR)

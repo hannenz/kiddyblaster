@@ -31,7 +31,6 @@ bool player_is_playing() {
 }
 
 
-
 int player_get_current_song_nr() {
     struct mpd_connection *mpd;
 
