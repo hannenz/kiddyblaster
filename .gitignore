@@ -2,4 +2,5 @@
 *.sw?
 tags
 webui/node_modules
+webui/public
 
