@@ -1,0 +1,37 @@
+<div>
+	<h1>Karten-Check</h1>
+	<p>Halte eine Karte an den Leser um zu erfahren, was darauf gespeichert ist</p>
+</div>
+
+<div id="card-wrapper">
+	<div class="card">
+		<div class="card__info"><span class="question-mark">?</span></div>
+	</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+	var wrapper = document.getElementById('card-wrapper');
+	var source = new EventSource('/stream');
+	source.addEventListener('message', function(event) {
+		var data = JSON.parse(event.data);
+
+		var info = document.createElement('div');
+		info.className = 'card__info';
+		info.innerHTML = 'Loading card #' + data.cardId;
+		wrapper.querySelector('.card').innerHTML = '';
+		wrapper.querySelector('.card').appendChild(info);
+
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', '/cards/get/' + data.cardId);
+		xhr.addEventListener('load', function(res) {
+			if (this.status >= 200 && this.status < 400) {
+				console.log(this.response);
+				wrapper.innerHTML = this.response;
+			}
+		});
+		xhr.send();
+	});
+});
+</script>
