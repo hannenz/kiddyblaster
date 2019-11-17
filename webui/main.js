@@ -5,7 +5,7 @@
  * @author Johannes Braun <johannes.braun@hannenz.de>
  * @version 2019-11-11
  */
-const port = 3001;
+const port = 4444;
 
 var express = require('express');
 var sqlite = require('sqlite3');

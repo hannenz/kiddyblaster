@@ -1,11 +1,16 @@
 <div class="card">
-	<div class="card__image">
-		<img src="/images/{{image}}" alt="" />
-	</div>
-	<div class="card__body">
-		<h2 class="card__title">{{name}}</h2>
-		<div class="card__uri">{{uri}}</div>
-		<div class="card__id">ID: {{id}}</div>
-		<a href="/cards/edit/{{id}}">bearbeiten</a>
+	<div class="card-wrapper">
+		<div class="card__image">
+			<img src="/images/{{image}}" alt="" />
+		</div>
+		<div class="card__body">
+			<h2 class="card__title" title="{{name}}">{{name}}</h2>
+			<div class="card__uri" title="{{uri}}">{{uri}}</div>
+			<div class="card__id">ID: {{id}}</div>
+			<div class="card__action-area">
+				<a href="/cards/edit/{{id}}">bearbeiten</a>
+				<a href="/cards/delete/{{id}}">löschen</a>
+			</div>
+		</div>
 	</div>
 </div>
