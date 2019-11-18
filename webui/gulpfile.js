@@ -60,15 +60,13 @@ const banner = [
 var settings = {
 
 	browserSync: {
-		proxy: 'http://' + pkg.name + '.localhost:4444',
+		proxy: 'kiddyblaster-webui.localhost:4444',
 		open: false,	// Don't open browser, change to "local" if you want or see https://browsersync.io/docs/options#option-open
 		notify: false,	// Don't notify on every change
-		// https: {
-		// 	key: require('os').homedir() + '/server.key',
-		// 	cert: require('os').homedir() + '/server.crt'
-		// 	// key: '/etc/ssl/private/ssl-cert-snakeoil.key',
-		// 	// cert: '/etc/ssl/certs/ssl-cert-snakeoil.pem'
-		// }
+		https: {
+			key: require('os').homedir() + '/server.key',
+			cert: require('os').homedir() + '/server.crt'
+		}
 	},
 
 	css: {
@@ -197,7 +195,7 @@ function cssProd() {
 function jsDev() {
 	return gulp
 		.src(settings.js.src)
-		.pipe($.jsvalidate().on('error', function(jsvalidate) { console.log(jsvalidate.message); this.emit('end'); }))
+		// .pipe($.jsvalidate().on('error', function(jsvalidate) { console.log(jsvalidate.message); this.emit('end'); }))
 		.pipe($.sourcemaps.init())
 		.pipe($.concat(settings.js.destFile))
 		.pipe($.uglify().on('error', function(uglify) { console.log(uglify.message); this.emit('end'); }))

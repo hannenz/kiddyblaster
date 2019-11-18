@@ -29,10 +29,14 @@ var hbs = exphbs.create({
 app.engine('.hbs', hbs.engine);
 app.set('view engine', '.hbs');
 
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded());
 app.use(express.json());
 app.use(fileUpload({ debug: false }));
+
+app.get('/', function(req, res) {
+	res.redirect('/cards');
+});
 
 app.get('/cards', function(req, res) {
     db.all('SELECT * FROM cards', function(err, results) {
@@ -121,6 +125,15 @@ app.post('/cards/edit/:id', function(req, res) {
 
 app.get('/cards/read', function(req, res) {
     res.render('cards/read');
+});
+
+app.get('/cards/delete/:id', function(req, res) {
+	console.log('Deleting card #' + req.params.id);
+	db.run('DELETE FROM cards WHERE id=?', [ req.params.id ], function(err) {
+		if (err) throw err;
+		res.redirect('/cards');
+	});
+
 });
 
 app.get('/stream', function(req, res) {
