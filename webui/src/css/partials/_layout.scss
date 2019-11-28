@@ -1,7 +1,6 @@
 .brand {
 	font-size: 2rem;
-	color: var(--color2);
-	text-shadow: 1px 1px 1px #fff;
+	color: var(--text-color);
 }
 
 .main-container {
@@ -31,7 +30,7 @@
 .sidebar {
 	flex-grow: 1;
 	flex-basis: 12rem;
-	background-color: rebeccapurple;
+	background-color: var(--color1);
 	color: #fff;
 	padding: var(--gutter);
 	border-radius: 3px;
