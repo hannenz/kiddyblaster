@@ -37,7 +37,7 @@ Thus I decidede to add a RJ52 plug for maintenance.
 On raspbian with apt:
 
 ```
-sudo apt install libmpdclient-dev libsqlite3-dev libglib2.0-dev
+sudo apt install libmpdclient-dev pigpio libsqlite3-dev libglib2.0-dev
 ```
 
 and follow the instructions on `http://www.airspayce.com/mikem/bcm2835/` to install the bcm2835 library
@@ -87,9 +87,8 @@ Update 2019-12-02: Installation step-by-step
 
 - raspi-config, steps see above + memory split: 16M for GPU
 
-- `sudo apt update && sudo appt upgrade`
-
 ```
+sudo apt update && sudo appt upgrade
 sudo apt-get --no-install-recommends install git mpc mpd pigpio libmpdclient-dev libsqlite3-dev libglib2.0-dev
 cd
 wget http://www.airspayce.com/mikem/bcm2835/bcm2835-1.60.tar.gz`
@@ -99,9 +98,7 @@ cd bcm2835-1.60
 make
 sudo make check
 sudo make install
-```
-
-```
+cd
 git clone https://github.com/hannenz/kiddyblaster
 cd ~/kiddyblaster
 make
@@ -142,6 +139,7 @@ Now place a card near the RFID chip and it will be programmed to play the audio 
 The webui is still under development. To try out you can install the webui:
 
 ```
+sudo apt install nodejs npm
 cd webui
 npm install -g gulp-cli
 npm install
