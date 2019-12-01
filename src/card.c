@@ -6,7 +6,7 @@
 
 #include "card.h"
 
-#define DB_FILE "/home/pi/cards.sql"
+#define DB_FILE "/var/lib/kiddyblaster/cards.sql"
 
 static int callback(void *udata, int argc, char **argv, char **az_col_name) {
     Card *card = (Card*)udata;
