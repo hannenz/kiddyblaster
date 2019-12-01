@@ -1,8 +1,8 @@
 # Makefile from https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
 TARGET_EXEC ?= kiddyblaster
-
 BUILD_DIR ?= ./build
 SRC_DIRS ?= ./src
+DATA_DIR ?= ./data
 
 SRCS := $(shell find $(SRC_DIRS) -maxdepth 1 -name *.cpp -or -name *.c -or -name *.s)
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
@@ -43,10 +43,28 @@ writecard: src/writecard/writecard.c src/card.c src/card.h src/mfrc522.c src/mfr
 install: 
 	install -m 755 $(BUILD_DIR)/$(TARGET_EXEC) /usr/local/bin/
 	install -m 755 $(BUILD_DIR)/writecard /usr/local/bin/
-	# todo:
-	# - Install systemd service (/etc/systemd/system/kiddyblaster.service)
-	# - Install success.wav (/home/pi/success.wav) -> find a better location
-	# - Install cards.sql (/home/pi/cards.sql) -> find a better location
+
+	# Read-only is o.k.
+	[ -e /usr/local/share/kiddyblaster ] || mkdir -m 755 /usr/local/share/kiddyblaster
+	install -m 644 $(DATA_DIR)/success.wav /usr/local/share/kiddyblaster/
+
+	# Needs to be writable
+	[ -e /var/lib/kiddyblaster ] || mkdir -m 755 /var/lib/kiddyblaster
+	install -m 644 $(DATA_DIR)/cards.sql /var/lib/kiddyblaster/
+
+	# Install systemd service 
+	install -m 644 $(DATA_DIR)/kiddyblaster.service /etc/systemd/system/
+	/bin/systemctl enable kiddyblaster.service
+
+	# Install mpd.conf
+	install -m 644 $(DATA_DIR)/mpd.conf /etc/
+
+uninstall:
+	/bin/systemctl disable kiddyblaster.service
+	rm -f /usr/local/bin/kiddyblaster
+	rm -f /usr/local/bin/writecard
+	rm -rf /usr/local/share/kiddyblaster
+	rm -rf /var/lib/kiddyblaster
 
 clean:
 	$(RM) -r $(BUILD_DIR)
