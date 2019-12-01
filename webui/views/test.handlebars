@@ -1,0 +1,15 @@
+<h1>Ich bin die Testseite</h1>
+<button id="btn">Klick mich</button>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('btn');
+    btn.addEventListener('click', function(ev) {
+        console.log("Starting...");
+        var source = new EventSource('/stream');
+        source.addEventListener('message', function(e) {
+            console.log(e.data);
+            document.write(e.data);
+        });
+    });
+});
+</script>

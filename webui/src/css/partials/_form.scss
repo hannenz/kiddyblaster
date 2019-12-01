@@ -1,0 +1,28 @@
+form {
+}
+
+.form-field {
+}
+
+label {
+	display: block;
+	color: #606060;
+	font-size: 14px;
+}
+
+input {
+	border: 0;
+	background-color: #fff;
+	padding: 4px 6px;
+	width: 100%;
+	max-width: 20rem;
+	font-size: 14px;
+}
+
+#preview-image.is-dragover {
+	outline: 2px dashed hotpink;
+}
+
+dialog::backdrop {
+	background-color: rgba(0, 0, 0, 0.5);
+}

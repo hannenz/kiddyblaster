@@ -1,0 +1,41 @@
+*, *::before, *::after {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html, body {
+	min-height: 100%;
+}
+
+html {
+	font-size: 17px;
+	line-height: 1.35;
+	color: #303030;
+	font-family: sans;
+}
+
+body {
+	// background-image: linear-gradient(120deg, var(--color1), var(--color2));
+
+	background-image: repeating-linear-gradient(45deg, 
+		var(--color1),
+		var(--color1) 10px, 
+		var(--color2) 10px,
+		var(--color2) 20px,
+	);
+
+	display: flex;
+	flex-direction: column;
+	padding-top: calc(3 * var(--gutter));
+	padding-bottom: calc(3 * var(--gutter));
+}
+
+img {
+	display: block;
+	max-width: 100%;
+}
+
+.stack > * + * {
+	margin-top: var(--gutter);
+}

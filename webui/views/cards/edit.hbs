@@ -1,0 +1,131 @@
+<form class="card-edit-form" action="" method="post" accept-charset="utf-8" enctype="multipart/form-data">
+
+	<div class="stack">
+
+		<div class="form-field">
+			<label for="name">Titel</label>
+			<input type="text" id="name" name="name" value="{{name}}" autofocus />
+		</div>
+
+		<div class="form-field">
+			<label for="uri">Pfad zu Audio-Dateien</label>
+			<input type="text" id="uri" name="uri" value="{{uri}}" />
+		</div>
+
+		<div class="form-field">
+			<label for="image">Bild (Klicken um ein Bild hoch zu laden)</label>
+			<input type="hidden" id="image" name="image" value="{{image}}" />
+			<div class="image-preview">
+				<img tabindex="0" id="preview-image" src="/images/{{image}}" alt="" />
+			</div>
+		</div>
+
+		<div class="form-field">
+			<label for="image">Bild hochladen</label>
+			<input type="file" id="upload" name="upload" />
+		</div>
+
+		<div class="form-field">
+			<label>Bild online suchen</label>
+			<button type="button" id="preview-fetch-btn">Online-Bildersuche</button>
+		</div>
+
+		<div class="form-field">
+			<button type="submit">Speichern</button>
+		</div>
+
+
+		<dialog id="image-select-dialog" class="dialog dialog--is-modal">
+			<form>
+				<div id="thumbnails">
+				</div>
+				<button>Abbrechen</button>
+				<button type="submit" value="">Bild verwenden</button>
+			</form>
+		</dialog>
+
+		<input type="hidden" value="{{id}}" name="id" id="id" />
+		<input name="download" type="hidden" value="" />
+	</div>
+
+</form>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	var btn = document.getElementById('preview-fetch-btn');
+	var previewImage = document.getElementById('preview-image');
+	var dlg = document.getElementById('image-select-dialog');
+	var thumbnails = document.getElementById('thumbnails');
+
+	btn.addEventListener('click', function(ev) {
+		ev.preventDefault();
+
+		dlg.showModal();
+
+		var xhr = new XMLHttpRequest();
+		var data = new FormData();
+		data.append('query', document.getElementById('name').value);
+		xhr.open('POST', '/imagesearch');
+		xhr.addEventListener('load', function() {
+			if (this.status < 200 || this.status >= 400) {
+				console.log("XHR Failed");
+			}
+			var results = JSON.parse(this.response);
+			console.log(results);
+			results.forEach(function(result, i) {
+				var image = new Image();
+				image.src = 'https:' + result.thumbnail;
+				image.dataset.url = result.media;
+				thumbnails.appendChild(image);
+				thumbnails.hidden = false;
+				image.style.width = '160px';
+				image.style.height = '160px';
+				image.style.objectFit = 'cover';
+				image.addEventListener('click', function(ev) {
+					document.querySelector('dialog [type=submit]').value = this.dataset.url;
+					previewImage.src = this.dataset.url;
+					thumbnails.hidden = true;
+				});
+			});
+		});
+		xhr.send(data);
+
+	});
+
+	var fileInput = document.querySelector('[type=file]');
+
+	fileInput.addEventListener('change', function() {
+		var reader = new FileReader();
+		reader.addEventListener('load', function(ev) {
+			previewImage.src = ev.target.result;
+		});
+		reader.readAsDataURL(this.files[0]);
+	});
+
+	fileInput.closest('.form-field').hidden = true;
+
+	previewImage.style.cursor = 'pointer';
+	previewImage.addEventListener('click', function() {
+		console.log('click');
+		fileInput.click();
+	});
+
+	previewImage.addEventListener('dragenter', function(e) {
+		previewImage.classList.add('is-dragover');
+	});
+
+	previewImage.addEventListener('dragleave', function(e) {
+		previewImage.classList.remove('is-dragover');
+	});
+
+	previewImage.addEventListener('dragover', function(e) {
+		e.preventDefault();
+	});
+
+	previewImage.addEventListener('drop', function(e) {
+		e.preventDefault();
+		previewImage.classList.remove('is-dragover');
+		var file = e.dataTransfer.files[0];
+		console.log(file);
+	});
+});
+</script>

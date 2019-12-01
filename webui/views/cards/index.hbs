@@ -1,19 +1,7 @@
-<p>Hello World!</p>
-<table>
-<thead>
-    <tr>
-        <th>ID</th>
-        <th>Name</th>
-        <th>URI</th>
-    </tr>
-</thead>
-<tbody>
-{{#each cards}}
-    <tr>
-        <td>{{id}}</td>
-        <td>{{name}}</td>
-        <td>{{uri}}</td>
-    </tr>
-{{/each}}
-</tbody>
-</table>
+<ul class="cards">
+	{{#each cards}}
+		{{> card}}	
+	{{/each}}
+	</tbody>
+	</table>
+</ul>
