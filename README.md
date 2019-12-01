@@ -75,6 +75,42 @@ Clone this repository and run `make`, then `sudo make install`
 Reboot
 
 
+Update 2019-12-02: Installation step-by-step
+
+- Raspberry II
+
+- Downloaded Raspbian Buster Lite (10.0)
+
+- `sudo dd bs=4M if=2019-09-26-raspbian-buster.img of=/dev/mmcblk0 conv=fsync`
+
+- boot
+
+- raspi-config, steps see above + memory split: 16M for GPU
+
+- `sudo apt update && sudo appt upgrade`
+
+```
+sudo apt-get --no-install-recommends install git mpc mpd pigpio libmpdclient-dev libsqlite3-dev libglib2.0-dev
+cd
+wget http://www.airspayce.com/mikem/bcm2835/bcm2835-1.60.tar.gz`
+tar zxvf bcm2835-1.60.tar.gz
+cd bcm2835-1.60
+./configure
+make
+sudo make check
+sudo make install
+```
+
+```
+git clone https://github.com/hannenz/kiddyblaster
+cd ~/kiddyblaster
+make
+sudo make install
+sudo reboot
+```
+
+
+
 ## Usage
 
 When booting the Raspberry Pi it will automatically launch the kiddyplayer daemon and MPD (Music Player Daemon).
