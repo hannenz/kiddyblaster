@@ -6,13 +6,14 @@
  * @version 2019-11-11
  */
 const port = 4444;
+const audioDir = process.env.HOME + '/Musik';
 
 var express = require('express');
 var sqlite = require('sqlite3');
 var CardReader = require('./card_reader.js');
 var qwant = require('qwant-api');
 var fileUpload = require('express-fileupload');
-var db = new sqlite.Database('../../cards.sql');
+var db = new sqlite.Database('/usr/local/share/kiddyblaster/cards.sql');
 var http = require('http');
 var https = require('https');
 var fs = require('fs');
@@ -118,10 +119,35 @@ app.post('/cards/edit/:id', function(req, res) {
 	}
 });
 
-// app.get('/cards/read', function(req, res) {
-//     var reader = new CardReader.CardReader();
-//     reader.read();
-// });
+
+app.get('/cards/new', function(req, res) {
+
+
+	res.render('cards/new');
+});
+
+
+app.get('/dir/get/:path?', function(req, res) {
+
+	const path = (req.params.path) ? req.params.path : '';
+
+	// TODO: Use file path builder if possible
+	const dir = audioDir + '/' + path;
+	console.log(dir);
+
+	console.log('reading dir: ' + dir);
+
+	fs.readdir(dir, (err, files) => {
+		if (err) {
+			// throw (err);
+			console.log('Error reading directory: ' + dir);
+		}
+		console.log(files);
+		res.json(files);
+		// res.end();
+	});
+});
+
 
 app.get('/cards/read', function(req, res) {
     res.render('cards/read');
