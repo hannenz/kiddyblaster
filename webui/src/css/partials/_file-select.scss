@@ -1,0 +1,40 @@
+#file-select-dialog {
+	position: fixed;
+	top: 33%;
+	left: 50%;
+	width: 540px;
+	height: 540px;
+	transform: translate(-50%, -50%);
+	background-color: #fff;
+	padding: 1rem;
+	border-radius: var(--radius);
+	box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+
+	button {
+		position: absolute;
+		top: 	var(--gutter);
+		right: 	var(--gutter);
+		z-index: 1;
+		width: 2rem;
+		height: 2rem;
+		line-height: 2rem;
+		text-align: center;
+		cursor: pointer;
+	}
+}
+
+.file-list {
+	max-height: calc(100% - 3rem);
+	overflow: auto;
+	list-style: none;
+
+	.dir {
+		font-weight: bold;
+		text-decoration: none;
+		color: var(--color1);
+	}
+
+	.file {
+		color: var(--color1);
+	}
+}
