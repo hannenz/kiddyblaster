@@ -12,12 +12,16 @@
 		<div class="form-field">
 			<label for="uri">Pfad zu Audio-Dateien</label>
 			<input type="text" id="uri" name="uri" value="{{uri}}" />
+			<input type="hidden" id="uri-ghost" name="uri-ghost" value="{{uri}}" />
 		</div>
 
 		<div id="file-select-dialog" class="dialog dialog--is-modal" hidden>
-			<button type="button" id="file-select-dialog-close-btn">&times;</button>
 			<ul id="file-list" class="file-list">
 			</ul>
+			<div class="dialog-action-area">
+				<button type="button" id="file-select-dialog-close-btn">&times; Abbrechen</button>
+				<button type="button" id="file-select-dialog-apply-btn">&check; OK</button>
+			</div>
 		</div>
 
 		<div class="form-field">
@@ -62,12 +66,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	var fileList = document.getElementById('file-list');
 	var uriInput = document.querySelector('[name=uri]');
+	var uriGhostInput = document.querySelector('[name=uri-ghost]');
 	const dlg = document.getElementById('file-select-dialog');
 
 	uriInput.addEventListener('focus', function() {
+		uriGhostInput.value = uriInput.value;
 		dlg.hidden = false;
+		document.addEventListener('keyup', onKeyUp);
 		loadDir(this.value);
 	});
+
+	function onKeyUp(ev) {
+		if (ev.keyCode == 27) {
+			closeDialog();
+		}
+	}
+
+	function closeDialog() {
+		dlg.hidden = true;
+		document.removeEventListener('keyup', onKeyUp);
+	}
 
 	function loadDir(path) {
 		var xhr = new XMLHttpRequest();
@@ -78,19 +96,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
 			var closeBtn = document.getElementById('file-select-dialog-close-btn');
 			closeBtn.addEventListener('click', function() {
-				dlg.hidden = true;
+				closeDialog();
+			});
+			var applyBtn = document.getElementById('file-select-dialog-apply-btn');
+			applyBtn.addEventListener('click', function() {
+				uriInput.value = uriGhostInput.value;
+				closeDialog();
 			});
 
-			if (uriInput.value.length > 0) {
+			if (uriGhostInput.value.length > 0) {
 				var parentListItem = document.createElement('li');
 				var parentLink = document.createElement('a');
 				parentLink.innerText = '..';
 				parentLink.setAttribute('href', 'javascript:;');
+				parentLink.className = 'go-up';
 				parentLink.addEventListener('click', onParentLinkClicked);
 				parentListItem.appendChild(parentLink);
 				fileList.appendChild(parentListItem);
 			}
 
+			
 			result.forEach( item => {
 				if (item.name.indexOf('.') != 0) {
 
@@ -111,19 +136,19 @@ document.addEventListener('DOMContentLoaded', function() {
 	}
 
 	function onFileSelectFileClicked() {
-		if (uriInput.value.length == 0) {
-			uriInput.value = this.innerText;
+		if (uriGhostInput.value.length == 0) {
+			uriGhostInput.value = this.innerText;
 		}
 		else {
-			uriInput.value = uriInput.value + '/' + this.innerText;
+			uriGhostInput.value = uriGhostInput.value + '/' + this.innerText;
 		}
-		loadDir(uriInput.value);
+		loadDir(uriGhostInput.value);
 	}
 
 	function onParentLinkClicked() {
-		var matches = uriInput.value.match(/(.*)\//);
-		uriInput.value = (matches != null)  ? matches[1] : '';
-		loadDir(uriInput.value);
+		var matches = uriGhostInput.value.match(/(.*)\//);
+		uriGhostInput.value = (matches != null)  ? matches[1] : '';
+		loadDir(uriGhostInput.value);
 	}
 });
 </script>

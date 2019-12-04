@@ -1,3 +1,10 @@
+/**
+ * src/css/partials/_file-select.scss
+ *
+ * @author Johannes Braun <johannes.braun@hannenz.de>
+ * @package kiddyblaster
+ * @version 2019-12-04
+ */
 #file-select-dialog {
 	position: fixed;
 	top: 33%;
@@ -10,14 +17,18 @@
 	border-radius: var(--radius);
 	box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
 
-	button {
+	.dialog-action-area {
 		position: absolute;
-		top: 	var(--gutter);
+		bottom: 	var(--gutter);
 		right: 	var(--gutter);
 		z-index: 1;
-		width: 2rem;
-		height: 2rem;
-		line-height: 2rem;
+	}
+
+	button {
+		width: auto;
+		// height: 2rem;
+		// line-height: 2rem;
+		padding: 4px 2px;
 		text-align: center;
 		cursor: pointer;
 	}
@@ -28,13 +39,32 @@
 	overflow: auto;
 	list-style: none;
 
+	.go-up::before {
+		content: '↑ ';
+		font-weight: bold;
+	}
+
+	.file, .dir, .go-up {
+		padding: 4px;
+		text-decoration: none;
+				dlg.hidden = true;
+	}
+
 	.dir {
 		font-weight: bold;
 		text-decoration: none;
-		color: var(--color1);
+		// color: var(--color1);
+		color: var(--text-color);
+
+		&:hover {
+			background-color: var(--color1);
+			color: #fff;
+		}
 	}
 
 	.file {
-		color: var(--color1);
+		// color: var(--color1);
+		color: var(--text-color);
+		opacity: 0.5;
 	}
 }
