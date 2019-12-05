@@ -10,7 +10,7 @@ const audioDir = process.env.HOME; // + '/Musik';
 
 var express = require('express');
 var sqlite = require('sqlite3');
-var CardReader = require('./card_reader.js');
+var CardReaderWriter = require('./card_reader_writer.js');
 var qwant = require('qwant-api');
 var fileUpload = require('express-fileupload');
 var db = new sqlite.Database('/var/lib/kiddyblaster/cards.sql');
@@ -195,7 +195,7 @@ app.get('/stream', function(req, res) {
     });
     res.write('\n');
 
-	var reader = new CardReader.CardReader();
+	var reader = new CardReaderWriter.CardReaderWriter();
 
 	// Loop reading a card 
 	(function doRead() {
