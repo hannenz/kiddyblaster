@@ -3,6 +3,9 @@ const SoftSPI = require("rpi-softspi");
 
 const loopInterval = 500;
 
+var sqlite = require('sqlite3');
+var db = new sqlite.Database('/var/lib/kiddyblaster/cards.sql');
+
 /**
  * Constructor
  *
@@ -32,9 +35,11 @@ CardReaderWriter.prototype.sleep = function(ms) {
 /**
  * Read
  * 
+ * @param string 		Name
+ * @param string 		Path
  * @return Promise 		Returns a Promise which resolves to the read card's id
  */
-CardReaderWriter.prototype.read = async function() {
+CardReaderWriter.prototype.read = async function(name, uri) {
 
 	var self = this;
 
@@ -131,18 +136,71 @@ CardReaderWriter.prototype.write = async function(id) {
 					return;
 				}
 
-				let data = [
-					id % 256,
-					id / 256,
-					0xff, 0xff,
-					0xff, 0xff, 0xff, 0xff,
-					0xff, 0xff, 0xff, 0xff,
-					0xff, 0xff, 0xff, 0xff
-				];
+				// read the id that is stored on the card
+				cardId = self.mfrc522.getDataForBlock(8)[0];
+				console.log("Card-ID: " + cardId);
 
-				mfrc522.writeDataToBlock(8, data);
-				mfrc522.stopCrypto();
-				resolve();
+				// check if we have an db entry with this id
+				db.get('SELECT * FROM cards WHERE id = ?', [ cardId ], function(err, row) {
+					if (err) {
+						reject(err)
+					}
+					if (row === undefined) {
+
+						// new database entry
+						db.run("INSERT INTO cards (name, uri) VALUES ('?', '?')", [ name, uri ], function(err) {
+							if (err) {
+								reject(err);
+							}
+							writeCardAndResolve(this.lastID);
+						});
+					}
+					else {
+
+						// TODO:
+						// Ask user to overwrite?
+						//
+						// Send info back to browser (SSE)
+						// Browser sends back same request but with ?confirm_overwrite=ID
+						// If this param is detected and we are here again,
+						// proceed overwriting
+
+						db.run("UPDATE cards SET name = '?', uri = '?' WHERE id = ?", [ name, uri, cardId ], function(err) {
+							if (err) {
+								reject(err);
+							}
+							writeCardAndResolve(cardId);
+						});
+					}
+					
+					function writeCardAndResolve(id) {
+
+						// write id to  card
+						let data = [
+							id % 256,
+							id / 256,
+							0xff, 0xff,
+							0xff, 0xff, 0xff, 0xff,
+							0xff, 0xff, 0xff, 0xff,
+							0xff, 0xff, 0xff, 0xff
+						];
+
+						mfrc522.writeDataToBlock(8, data);
+						mfrc522.stopCrypto();
+						resolve();
+					}
+				});
+
+
+				// if it has an id already
+				// 		ask to overwrite
+				// 			no: abort
+				// 			yes: update database entry for id
+				// 	else
+
+
+
+
 			}
 			timeSpent += (loopInterval / 1000);
 			if (timeSpent < self.timeout) {
