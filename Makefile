@@ -66,6 +66,11 @@ uninstall:
 	rm -rf /usr/local/share/kiddyblaster
 	rm -rf /var/lib/kiddyblaster
 
+webui:
+	export NODE_ENV=production
+	cd ./webui
+	npm install
+
 clean:
 	$(RM) -r $(BUILD_DIR)
 
