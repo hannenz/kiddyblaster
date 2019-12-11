@@ -74,6 +74,7 @@ app.get('/cards/get/:id', function(req, res) {
 
 app.get('/cards/edit/:id', function(req, res) {
 	db.get('SELECT * FROM cards WHERE id=' + req.params.id, function(err, result) {
+		if (err) throw err;
 		res.render('cards/edit', result);
 	});
 });

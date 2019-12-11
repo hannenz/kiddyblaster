@@ -1,9 +1,13 @@
-<h1>New</h1>
 <form class="card-new-form" action="/cards/save" method="post" accept-charset="utf-8" enctype="multipart/form-data">
 
-	<input type="text" value="{{id}}" name="id" id="" />
+
 
 	<div class="stack">
+
+		<div class="form-field">
+			<label for="id">ID</label>
+			<input readonly type="text" value="{{id}}" name="id" id="" />
+		</div>
 
 		<div class="form-field">
 			<label for="name">Titel</label>

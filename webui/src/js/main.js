@@ -5,12 +5,11 @@ var KiddyBlaster = function() {
 	this.init = function() {
 		console.log("init");
 		self.initButtons();
-		var cardEdit = new CardEdit();
+		var fileSelect = new FileSelect();
 	};
 
 	this.initButtons = function() {
 
-		console.log("initButtons");
 		var deleteButtons = document.querySelectorAll('.delete');
 		deleteButtons.forEach(function(btn) {
 			btn.addEventListener('click', function(ev) {
@@ -55,5 +54,3 @@ document.addEventListener('DOMContentLoaded', function() {
 	var kiddyBlaster = new KiddyBlaster();
 	kiddyBlaster.init();
 });
-
-

@@ -1,12 +1,9 @@
-var CardEdit = function() {
+var FileSelect = function() {
 
-	var fileList = document.getElementById('file-list');
-	if (!fileList) {
-		return;
-	}
 	var uriInput = document.querySelector('[name=uri]');
 	var uriGhostInput = document.querySelector('[name=uri-ghost]');
 	var dlg = document.getElementById('file-select-dialog');
+	var fileList = document.getElementById('file-list');
 
 	uriInput.addEventListener('focus', function() {
 		uriGhostInput.value = uriInput.value;
@@ -15,16 +12,19 @@ var CardEdit = function() {
 		loadDir(this.value);
 	});
 
+
 	function onKeyUp(ev) {
 		if (ev.keyCode == 27) {
 			closeDialog();
 		}
 	}
 
+
 	function closeDialog() {
 		dlg.hidden = true;
 		document.removeEventListener('keyup', onKeyUp);
 	}
+
 
 	function loadDir(path) {
 		var xhr = new XMLHttpRequest();
