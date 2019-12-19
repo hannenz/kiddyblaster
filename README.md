@@ -132,6 +132,7 @@ sudo writecard "Das Dschungelbuch" "Audiobooks/Das Dschungelbuch"
 ```
 
 Now place a card near the RFID chip and it will be programmed to play the audio files in this directory from the next time on.
+It might be necessary to restart the kiddyblaster daemon after writing a card: `sudo systemctl restart kiddyblaster.service`
 
 
 ### Programming cards with the WebUI
