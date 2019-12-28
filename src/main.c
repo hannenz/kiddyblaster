@@ -220,11 +220,11 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
             switch (pin) {
                 case BUTTON_1_PIN:
                     // Power off the musicbox
-                    /* syslog(LOG_NOTICE, ".. SHUTDOWN\n"); */
+                    syslog(LOG_NOTICE, ".. SHUTDOWN\n");
                     lcd_clear();
-                    lcd_puts(LCD_LINE_1, "Tschüß..!");
-                    /* sync(); */
-                    /* reboot(LINUX_REBOOT_CMD_POWER_OFF); */
+                    lcd_puts(LCD_LINE_1, "Bye..!");
+                    sync();
+                    reboot(LINUX_REBOOT_CMD_POWER_OFF);
                     break;
 
                 case BUTTON_2_PIN:
