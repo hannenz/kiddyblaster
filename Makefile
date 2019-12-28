@@ -59,6 +59,13 @@ install:
 	# Install mpd.conf
 	install -m 644 $(DATA_DIR)/mpd.conf /etc/
 
+devinstall:
+	/bin/systemctl stop kiddyblaster.service
+	install -m 755 $(BUILD_DIR)/$(TARGET_EXEC) /usr/local/bin/
+	install -m 755 $(BUILD_DIR)/writecard /usr/local/bin/
+	/bin/systemctl start kiddyblaster.service
+
+
 uninstall:
 	/bin/systemctl disable kiddyblaster.service
 	rm -f /usr/local/bin/kiddyblaster

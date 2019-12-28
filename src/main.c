@@ -415,6 +415,14 @@ static void read_directories(const char *path, int depth) {
 }
 
 
+void clean_up() {
+    lcd_clear();
+    lcd_puts(LCD_LINE_1, "***  BYE!  ***");
+    syslog(LOG_INFO, "***  BYE!  ***");
+    gpioTerminate();
+}
+
+
 int main() {
 
     /* start_daemon(DAEMON_NAME, LOG_LOCAL0); */
@@ -423,6 +431,7 @@ int main() {
     // Setup pigpio lib
     if (gpioInitialise() < 0) {
         syslog(LOG_ERR, "Failed to initializ GPIO\n");
+        exit(-1);
     }
 
     player_pause();
@@ -430,6 +439,9 @@ int main() {
     // Init LCD display
     lcd_init();
     update_lcd();
+    lcd_clear();
+    lcd_puts(LCD_LINE_1, "*** HALLO ***");
+    syslog(LOG_INFO, "*** KIDDYBLASTER STARTING UP ***");
 
     // Init MFRC522 card reader
     card_reader_init();
@@ -470,7 +482,7 @@ int main() {
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
     // Register clean-up function
-    /* atexit(clean_up); */
+    atexit(clean_up);
 
     // Start an endless loop
     while (running) {
@@ -502,6 +514,9 @@ int main() {
     // Clean-up and terminate
     syslog(LOG_NOTICE, "Terminating\n");
     gpioStopThread(card_reader);
+
+    clean_up();
+
     closelog();
 
     return 0;
