@@ -447,6 +447,8 @@ int main() {
     pthread_t *card_reader;
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
+    // Register clean-up function
+    atexit(clean_up);
 
     // Start an endless loop
     while (running) {

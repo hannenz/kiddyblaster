@@ -3,6 +3,7 @@
  * WebUI
  *
  * @author Johannes Braun <johannes.braun@hannenz.de>
+ * @package kiddyblaster
  * @version 2019-11-11
  */
 const port = 4444;
@@ -35,24 +36,27 @@ app.use(express.urlencoded());
 app.use(express.json());
 app.use(fileUpload({ debug: false }));
 
+
 app.get('/', function(req, res) {
 	res.redirect('/cards');
 });
+
 
 app.get('/cards', function(req, res) {
     db.all('SELECT * FROM cards', function(err, results) {
         if (err) {
             throw err;
+			res.end();
         }
         res.render('cards/index', { cards: results });
     });
 });
 
+// Deprecated?
 app.get('/cards/get/:id', function(req, res) {
 	console.log(req.params.id);
 	db.get('SELECT * FROM cards WHERE id=' + req.params.id, function(err, result) {
 		if (err) throw err;
-
 
 		// Get an image from QWANT image search
 		qwant.search("images", {
@@ -67,11 +71,14 @@ app.get('/cards/get/:id', function(req, res) {
 	});
 });
 
+
 app.get('/cards/edit/:id', function(req, res) {
 	db.get('SELECT * FROM cards WHERE id=' + req.params.id, function(err, result) {
+		if (err) throw err;
 		res.render('cards/edit', result);
 	});
 });
+
 
 app.post('/cards/save', function(req, res) {
 	// get file upload, if any
@@ -142,7 +149,7 @@ app.post('/cards/save', function(req, res) {
 
 
 app.get('/cards/new', function(req, res) {
-	res.render('cards/new');
+	res.render('cards/edit');
 });
 
 
