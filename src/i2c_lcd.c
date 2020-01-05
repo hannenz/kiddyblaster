@@ -142,3 +142,8 @@ void lcd_init() {
     }
     gpioDelay(500);
 }
+
+void lcd_deinit() {
+    i2cClose(fd);
+}
+

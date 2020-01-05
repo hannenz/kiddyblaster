@@ -15,6 +15,7 @@
 
 
 void lcd_init();
+void lcd_deinit();
 void lcd_clear();
 void lcd_loc(int line);
 void lcd_puts(int line, const char *str);
