@@ -16,7 +16,7 @@ CFLAGS:=`pkg-config --cflags glib-2.0`
 LDFLAGS:=-pthread -lpigpio -lmpdclient -lbcm2835 -lrt -lsqlite3 `pkg-config --libs glib-2.0`
 
 
-$(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) writecard
+$(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) 
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
 # assembly
@@ -58,6 +58,13 @@ install:
 
 	# Install mpd.conf
 	install -m 644 $(DATA_DIR)/mpd.conf /etc/
+
+devinstall:
+	/bin/systemctl stop kiddyblaster.service
+	install -m 755 $(BUILD_DIR)/$(TARGET_EXEC) /usr/local/bin/
+	install -m 755 $(BUILD_DIR)/writecard /usr/local/bin/
+	/bin/systemctl start kiddyblaster.service
+
 
 uninstall:
 	/bin/systemctl disable kiddyblaster.service
