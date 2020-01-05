@@ -34,11 +34,8 @@
 #include "card_reader.h"
 #include "card.h"
 
-typedef void (*sighandler_t)(int);
+/* typedef void (*sighandler_t)(int); */
 
-
-#define PRG_NAME "kiddyblaster"
-#define DAEMON_NAME "kiddyblasterd"
 
 #define BUTTON_1_PIN 23     // PLAY
 #define BUTTON_2_PIN 26     // PREV
@@ -53,7 +50,7 @@ enum {
     TIMER_NR_SLEEP
 };
 
-#define BACKLIGHT_OFF_TIMEOUT 15000
+#define BACKLIGHT_OFF_TIMEOUT 60 * 1000
 
 // Globals
 int timer = 0;  // seconds 
@@ -201,11 +198,14 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
         else if (duration < 5000) {
             switch (pin) {
                 case BUTTON_1_PIN:
-                    // Not implemented yet... later maybe "Card Write Mode"
+                    // Re-play current playlist from start
+                    player_replay_playlist();
                     break;
 
                 case BUTTON_2_PIN:
-                    // Not implemented yet... 
+                    // Re-init LCD
+                    lcd_deinit();
+                    lcd_init();
                     break;
 
                 case BUTTON_3_PIN:
@@ -220,11 +220,11 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
             switch (pin) {
                 case BUTTON_1_PIN:
                     // Power off the musicbox
-                    /* syslog(LOG_NOTICE, ".. SHUTDOWN\n"); */
+                    syslog(LOG_NOTICE, ".. SHUTDOWN\n");
                     lcd_clear();
                     lcd_puts(LCD_LINE_1, "Tschüß..!");
-                    /* sync(); */
-                    /* reboot(LINUX_REBOOT_CMD_POWER_OFF); */
+                    sync();
+                    reboot(LINUX_REBOOT_CMD_POWER_OFF);
                     break;
 
                 case BUTTON_2_PIN:
@@ -317,55 +317,6 @@ void update_lcd() {
 
 
 
-/* static sighandler_t handle_signal(int sig_nr, sighandler_t signalhandler) { */
-/*     struct sigaction new_sig, old_sig; */
-/*  */
-/*     new_sig.sa_handler = signalhandler; */
-/*     sigemptyset(&new_sig.sa_mask); */
-/*     new_sig.sa_flags = SA_RESTART; */
-/*     if (sigaction(sig_nr, &new_sig, &old_sig) < 0) { */
-/*         return SIG_ERR; */
-/*     } */
-/*     return old_sig.sa_handler; */
-/* } */
-/*  */
-/*  */
-/*  */
-/* static void start_daemon(const char *log_name, int facility) { */
-/*     int i; */
-/*     pid_t pid; */
-/*  */
-/*     // Terminate parent process, creating a widow which will be handled by init */
-/*     if ((pid = fork()) != 0) { */
-/*         exit (EXIT_FAILURE); */
-/*     } */
-/*  */
-/*     // child process becomes session leader */
-/*     if (setsid() < 0) { */
-/*         printf("%s can not become session leader\n", log_name); */
-/*         exit(EXIT_FAILURE); */
-/*     } */
-/*  */
-/*     // Ignore SIGHUP */
-/*     handle_signal(SIGHUP, SIG_IGN); */
-/*  */
-/*     // Terminate the child */
-/*     if ((pid = fork()) != 0) { */
-/*         exit(EXIT_FAILURE); */
-/*     } */
-/*  */
-/*     chdir("/"); */
-/*     umask(0); */
-/*     for (i = sysconf(_SC_OPEN_MAX); i > 0; i--) { */
-/*         close(i); */
-/*     } */
-/*  */
-/*     openlog(log_name, LOG_PID | LOG_CONS | LOG_NDELAY, facility); */
-/*     syslog(LOG_NOTICE, "Daemon has been started\n"); */
-/* } */
-/*  */
-
-
 static void on_card_detected(int card_id) {
 
     Card *card = card_read(card_id);
@@ -415,21 +366,48 @@ static void read_directories(const char *path, int depth) {
 }
 
 
+void clean_up() {
+    lcd_clear();
+    lcd_puts(LCD_LINE_1, "***  BYE!  ***");
+    syslog(LOG_INFO, "Cleaning up before exit");
+    gpioTerminate();
+}
+
+
+// Called on signal SIGTERM.
+void on_sigterm(int signum) {
+    syslog(LOG_INFO, "Caught SIGTERM, terminating main loop to exit");
+    running = false;
+}
+
+
 int main() {
-
-    /* start_daemon(DAEMON_NAME, LOG_LOCAL0); */
-
 
     // Setup pigpio lib
     if (gpioInitialise() < 0) {
-        syslog(LOG_ERR, "Failed to initializ GPIO\n");
+        syslog(LOG_ERR, "Failed to initialize GPIO\n");
+        exit(-1);
     }
+
+
+    // Catch SIGTERM 
+    struct sigaction action;
+    memset(&action, 0, sizeof(struct sigaction));
+    action.sa_handler = on_sigterm;
+    sigaction(SIGTERM, &action, NULL);
+
+    // Register clean-up function
+    atexit(clean_up);
+
 
     player_pause();
 
     // Init LCD display
     lcd_init();
     update_lcd();
+    lcd_clear();
+    update_lcd();
+    syslog(LOG_INFO, "*** KIDDYBLASTER STARTING UP ***");
 
     // Init MFRC522 card reader
     card_reader_init();
@@ -469,8 +447,6 @@ int main() {
     pthread_t *card_reader;
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
-    // Register clean-up function
-    /* atexit(clean_up); */
 
     // Start an endless loop
     while (running) {
@@ -496,14 +472,11 @@ int main() {
         }
     }
 
-    lcd_clear();
-    lcd_puts(LCD_LINE_1, "Bye bye!");
-
     // Clean-up and terminate
     syslog(LOG_NOTICE, "Terminating\n");
     gpioStopThread(card_reader);
+    clean_up();
     closelog();
-
     return 0;
 }
 
