@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sqlite3.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include "../bcm2835.h" 
 #include "../mfrc522.h"
 #include "../card.h"
