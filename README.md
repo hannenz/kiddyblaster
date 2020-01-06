@@ -7,12 +7,14 @@ RFID driven musicbox for children
 - RFID-Reader: MFRC522 and some RFID cards
 - LCD (optional): I2C 2x16 LCD 
 - USB Audio / Soundcard
-- Amplifier
-- Speakers
-- 3 Arcade buttons
-- Potentiometer for volume control
+- Amplifier, e.g. [DEBO Sound Amp2, 3.7 W Class D Amplifier](https://www.reichelt.de/entwicklerboards-audioverstaerker-stereo-3-7-w-klasse-d-max-debo-sound-amp2-p235507.html?)
+- Speakers, e.g. [VIS 4629 77mm 5W](https://www.reichelt.de/lautsprecher-breitband-77-mm-5-w-vis-4629-p248312.html?)
+- 3 Arcade buttons, e.g. [](https://www.reichelt.de/drucktaster-4a-250vac-1x-ein-21-16mm-sw-mar-5000-0104-p108204.html?)
+- 1 Stereo Potentiometer for volume control (50 KOhm logarithmic), e.g. [](https://www.reichelt.de/drehpotentiometer-stereo-50-kohm-logarithmisch-6-mm-rk14k12b-log50k-p73862.html?)
 - RJ52 Jack and short patch cable
 - Case: I've done it with PVC, could also be done with wood or use/upcycle an old plastic case or whatever...
+
+
 
 
 ## Some words on ...
@@ -160,3 +162,13 @@ nodejs main.js
 
 Then open a browser and open `ip-address-of-raspi:4444` 
 
+
+## Todos
+
+- Headphones
+- Shorter press delay (700 is too much)
+- LCD scroll long lines
+- Finish  WebUI
+- Button labels
+
+	
