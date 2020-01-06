@@ -33,6 +33,7 @@
 #include "player.h"
 #include "card_reader.h"
 #include "card.h"
+#include "browser.h"
 
 /* typedef void (*sighandler_t)(int); */
 
@@ -58,16 +59,15 @@ int micros;     // dummy, unused but we need it to pass to gpioTime()
 bool is_sleeping = false;
 int current_song = 0;
 bool running = true;
-GList *directories;
-GList *selected_dir;
 bool select_mode = false;
+Browser *browser;
 
 
 
 // Prototypes
 void update_lcd();
 /* static void start_daemon(const char*, int); */
-static void read_directories(const char *path, int depth);
+/* static void read_directories(const char *path, int depth); */
 
 
 
@@ -157,9 +157,15 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                 case BUTTON_1_PIN:
                     if (select_mode) {
                         select_mode = false;
-                        char *uri = selected_dir->data;
-                        syslog(LOG_NOTICE, "Playing URI: %s\n", uri);
-                        player_play_uri(uri);
+                        const gchar *uri = browser_get_selected_directory(browser);
+                        if (uri != NULL) {
+                            syslog(LOG_NOTICE, "Playing URI: %s\n", uri);
+                            player_play_uri(uri);
+                            update_lcd();
+                        }
+                        else {
+                            syslog(LOG_WARNING, "Failed to get selected path fromr file browser");
+                        }
                     }
                     else {
                         syslog(LOG_NOTICE, "|| TOGGLE\n");
@@ -169,9 +175,7 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 
                 case BUTTON_2_PIN:
                     if (select_mode) {
-                        if (selected_dir->prev != NULL) {
-                            selected_dir = selected_dir->prev;
-                        }
+                        browser_previous(browser);
                     }
                     else {
                         syslog(LOG_NOTICE, "<< PREV\n");
@@ -181,9 +185,7 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 
                 case BUTTON_3_PIN:
                     if (select_mode) {
-                        if (selected_dir->next != NULL) {
-                            selected_dir = selected_dir->next;
-                        }
+                        browser_next(browser);
                     }
                     else {
                         syslog(LOG_NOTICE, ">> NEXT\n");
@@ -237,12 +239,8 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 
                 case BUTTON_3_PIN:
                     syslog(LOG_NOTICE, "Entering WRITE MODE\n");
-                    g_list_free_full(directories, g_free);
-                    directories = NULL;
-                    select_mode = true;
-
-                    read_directories("/home/pi/Music", 0);
-                    selected_dir = directories;
+                    select_mode = TRUE;
+                    browser_start_browsing(browser);
                     break;
             }
         }
@@ -269,10 +267,11 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 void update_lcd() {
     if (select_mode) {
         lcd_clear();
-        lcd_puts(LCD_LINE_1, "Select dir      ");
-        if (selected_dir != NULL && selected_dir->data != NULL) {
-            lcd_puts(LCD_LINE_2, selected_dir->data);
+        const gchar *uri = browser_get_selected_directory(browser);
+        if (uri != NULL) {
+            lcd_puts(LCD_LINE_1, uri);
         }
+        lcd_puts(LCD_LINE_2, "SEL     ↑     ↓ ");
     }
     else {
         struct mpd_connection *mpd;
@@ -338,32 +337,6 @@ static void on_card_detected(int card_id) {
 
 
 
-static void read_directories(const char *path, int depth) {
-    DIR *dir;
-    struct dirent *ent;
-
-    if ((dir = opendir(path)) == NULL) {
-        return;
-    }
-
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_type == DT_DIR) {
-            if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
-                continue;
-            }
-            /* syslog(LOG_INFO, "%s\n", ent->d_name); */
-            /* printf("%*s[%s]\n", depth, "", ent->d_name); */
-            directories = g_list_append(directories, g_strdup(ent->d_name));
-
-            char new_path[1024];
-            snprintf(new_path, sizeof(new_path), "%s/%s", path, ent->d_name);
-            read_directories(new_path, depth + 4);
-        }
-    }
-
-    closedir(dir);
-    return;
-}
 
 
 void clean_up() {
@@ -371,6 +344,7 @@ void clean_up() {
     lcd_puts(LCD_LINE_1, "***  BYE!  ***");
     syslog(LOG_INFO, "Cleaning up before exit");
     gpioTerminate();
+    free(browser);
 }
 
 
@@ -449,6 +423,8 @@ int main() {
 
     // Register clean-up function
     atexit(clean_up);
+
+    browser = browser_new("/home/pi/Music");
 
     // Start an endless loop
     while (running) {
