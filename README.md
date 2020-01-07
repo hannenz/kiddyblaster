@@ -181,5 +181,5 @@ Then open a browser and open `ip-address-of-raspi:4444`
 - LCD scroll long lines
 - Finish  WebUI
 - Button labels
-
+- Browse / Play directory without card (we need 4 buttons for this!)
 	
