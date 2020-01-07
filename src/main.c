@@ -374,7 +374,8 @@ int main() {
     atexit(clean_up);
 
 
-    player_pause();
+	// Handled in mpd.conf with `restore_paused "yes"`
+    // player_pause();
 
     // Init LCD display
     lcd_init();
