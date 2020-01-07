@@ -118,7 +118,18 @@ To program the cards there is a cli utility `writecard` and a webui.
 
 ### Programming cards with the cli utility `writecard`
 
-SSH onto the Kiddyblaster box and issue:
+
+SSH onto the Kiddyblaster box
+
+
+__Attention!__ Make sure that kiddyblaster service is not running,
+when writing __new__ cards (overwriting existing cards will probably
+work but it is recommended to always stop kiddyblaster before writing
+cards!)
+
+```
+sudo systemctl stop kiddyblaster.service
+```
 
 ```
 sudo writecard "{name of the card}" "path/to/directory"
@@ -134,12 +145,12 @@ slashes, e.g.
 sudo writecard "Das Dschungelbuch" "Audiobooks/Das Dschungelbuch"
 ```
 
-
 Now place a card near the RFID chip and it will be programmed to play the audio files in this directory from the next time on.
-It might be necessary to restart the kiddyblaster daemon after writing a card:
+
+When done, restart kiddyblaster:
 
 ```
-sudo systemctl restart kiddyblaster.service
+sudo systemctl start kiddyblaster.service
 ```
 
 
