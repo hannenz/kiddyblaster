@@ -373,6 +373,15 @@ int main() {
     // Register clean-up function
     atexit(clean_up);
 
+    // Write own PID to /var/run
+    pid_t pid = getpid();
+    FILE *runfile = fopen("/var/run/kiddyblaster", "w");
+    if (runfile == NULL) {
+        syslog(LOG_ERR, "Failed to write /var/run/kiddyblaster");
+    }
+    fprintf(runfile, "%u", pid);
+    fclose(runfile);
+
 
     player_pause();
 
