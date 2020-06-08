@@ -1,6 +1,4 @@
-<form class="card-new-form" action="/cards/save" method="post" accept-charset="utf-8" enctype="multipart/form-data">
-
-	<input type="text" value="{{id}}" name="id" id="" />
+<form class="card-edit-form" action="" method="post" accept-charset="utf-8" enctype="multipart/form-data">
 
 	<div class="stack">
 
@@ -12,12 +10,6 @@
 		<div class="form-field">
 			<label for="uri">Pfad zu Audio-Dateien</label>
 			<input type="text" id="uri" name="uri" value="{{uri}}" />
-		</div>
-
-		<div id="file-select-dialog" class="dialog dialog--is-modal" hidden>
-			<button type="button" id="file-select-dialog-close-btn">&times;</button>
-			<ul id="file-list" class="file-list">
-			</ul>
 		</div>
 
 		<div class="form-field">
@@ -57,76 +49,6 @@
 	</div>
 
 </form>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-
-	var fileList = document.getElementById('file-list');
-	var uriInput = document.querySelector('[name=uri]');
-	const dlg = document.getElementById('file-select-dialog');
-
-	uriInput.addEventListener('focus', function() {
-		dlg.hidden = false;
-		loadDir(this.value);
-	});
-
-	function loadDir(path) {
-		var xhr = new XMLHttpRequest();
-		xhr.open('GET', '/dir/get/' + encodeURIComponent(path));
-		xhr.onload = function() {
-			fileList.innerHTML = '';
-			var result = JSON.parse(this.responseText);
-
-			var closeBtn = document.getElementById('file-select-dialog-close-btn');
-			closeBtn.addEventListener('click', function() {
-				dlg.hidden = true;
-			});
-
-			if (uriInput.value.length > 0) {
-				var parentListItem = document.createElement('li');
-				var parentLink = document.createElement('a');
-				parentLink.innerText = '..';
-				parentLink.setAttribute('href', 'javascript:;');
-				parentLink.addEventListener('click', onParentLinkClicked);
-				parentListItem.appendChild(parentLink);
-				fileList.appendChild(parentListItem);
-			}
-
-			result.forEach( item => {
-				if (item.name.indexOf('.') != 0) {
-
-					var listItem = document.createElement('li');
-					var link = document.createElement('a');
-					link.innerText = item.name;
-					link.className = item.isDir ? 'dir' : 'file';
-					if (item.isDir) {
-						link.setAttribute('href', 'javascript:;');
-						link.addEventListener('click', onFileSelectFileClicked);
-					}
-					listItem.appendChild(link);
-					fileList.appendChild(listItem);
-				}
-			});
-		};
-		xhr.send();
-	}
-
-	function onFileSelectFileClicked() {
-		if (uriInput.value.length == 0) {
-			uriInput.value = this.innerText;
-		}
-		else {
-			uriInput.value = uriInput.value + '/' + this.innerText;
-		}
-		loadDir(uriInput.value);
-	}
-
-	function onParentLinkClicked() {
-		var matches = uriInput.value.match(/(.*)\//);
-		uriInput.value = (matches != null)  ? matches[1] : '';
-		loadDir(uriInput.value);
-	}
-});
-</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 	var btn = document.getElementById('preview-fetch-btn');

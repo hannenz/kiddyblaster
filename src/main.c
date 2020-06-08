@@ -33,6 +33,7 @@
 #include "player.h"
 #include "card_reader.h"
 #include "card.h"
+#include "network_info.h"
 
 typedef void (*sighandler_t)(int);
 
@@ -44,7 +45,7 @@ typedef void (*sighandler_t)(int);
 #define BUTTON_2_PIN 26     // PREV
 #define BUTTON_3_PIN 4      // NEXT
 
-#define SLEEP_TIMER 30 * 60
+#define SLEEP_TIMER 60 * 60
 
 // Timer NRs for different gpioSetTimer calls
 enum {
@@ -71,10 +72,14 @@ bool select_mode = false;
 void update_lcd();
 /* static void start_daemon(const char*, int); */
 static void read_directories(const char *path, int depth);
+static void display_network_info();
 
 
 
 static void backlight_off() {
+
+    // disabled for the time being
+    return;
 
     // Only switch off between 18:00 and 09:00
     time_t rawtime;
@@ -142,6 +147,7 @@ static void goto_sleep() {
 static void on_button_pressed(int pin, int level, uint32_t tick) {
     uint32_t duration;
     static uint32_t t0;
+    bool do_update_lcd = true;
 
     if (level == 0) {
         // button pressed, start counting ...
@@ -201,7 +207,8 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
         else if (duration < 5000) {
             switch (pin) {
                 case BUTTON_1_PIN:
-                    // Not implemented yet... later maybe "Card Write Mode"
+                    display_network_info();
+                    do_update_lcd = false;
                     break;
 
                 case BUTTON_2_PIN:
@@ -255,7 +262,9 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
             is_sleeping = false;
         //}
 
-        update_lcd();
+        if (do_update_lcd) {
+            update_lcd();
+        }
         lcd_set_backlight(true);
         gpioSetTimerFunc(TIMER_NR_BACKLIGHT, BACKLIGHT_OFF_TIMEOUT, &backlight_off);
     }
@@ -365,6 +374,24 @@ void update_lcd() {
 /* } */
 /*  */
 
+static void display_network_info() {
+    syslog(LOG_NOTICE, "Displaying network info");
+    lcd_clear();
+    wifi_info_t wifi_info;
+    get_wifi_info(&wifi_info);
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%03u,%03u,%03u", wifi_info.link_quality, wifi_info.signal_level, wifi_info.noise_level);
+    syslog(LOG_NOTICE, buf);
+    lcd_puts(LCD_LINE_1, buf);
+
+    char *ip_addr = get_ip_address("wlan0");
+    syslog(LOG_NOTICE, ip_addr);
+    snprintf(buf, sizeof(buf), "%-16s", ip_addr);
+    syslog(LOG_NOTICE, buf);
+    lcd_puts(LCD_LINE_2, buf);
+    free(ip_addr);
+}
+
 
 static void on_card_detected(int card_id) {
 
@@ -464,6 +491,7 @@ int main() {
 
     // Setup sleep timer
     reset_timer();
+
 
     // Start an own thread for reading RFID cards
     pthread_t *card_reader;

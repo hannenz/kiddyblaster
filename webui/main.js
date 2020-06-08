@@ -6,13 +6,14 @@
  * @version 2019-11-11
  */
 const port = 4444;
+const audioDir = process.env.HOME; // + '/Musik';
 
 var express = require('express');
 var sqlite = require('sqlite3');
-var CardReader = require('./card_reader.js');
+var CardReaderWriter = require('./card_reader_writer.js');
 var qwant = require('qwant-api');
 var fileUpload = require('express-fileupload');
-var db = new sqlite.Database('../../cards.sql');
+var db = new sqlite.Database('/var/lib/kiddyblaster/cards.sql');
 var http = require('http');
 var https = require('https');
 var fs = require('fs');
@@ -72,7 +73,7 @@ app.get('/cards/edit/:id', function(req, res) {
 	});
 });
 
-app.post('/cards/edit/:id', function(req, res) {
+app.post('/cards/save', function(req, res) {
 	// get file upload, if any
 	if (req.files && req.files.upload) {
 		var upload = req.files.upload;
@@ -82,7 +83,14 @@ app.post('/cards/edit/:id', function(req, res) {
 			if (err) {
 				console.log('Moving image failed');
 			}
-			db.run('UPDATE cards SET name=?, uri=?, image=? WHERE id=?', [ req.body.name, req.body.uri, upload.name, req.body.id ], function(err) {
+
+			if (req.body.id) {
+				query = `UPDATE cards SET name='${req.body.name}', uri='${req.body.uri}', image='${upload.name}' WHERE id=${req.body.id}`;
+			}
+			else {
+				query = `INSERT INTO cards SET name='${req.body.name}', uri='${req.body.uri}', image='${upload.name}'`; 
+			}
+			db.run(query, function(err) {
 				if (err) throw err;
 				res.redirect('/cards/edit/' + req.params.id);
 			});
@@ -101,7 +109,13 @@ app.post('/cards/edit/:id', function(req, res) {
 			response.pipe(file);
 			file.on('finish', function() {
 				file.close(function() {
-					db.run('UPDATE cards SET name=?, uri=?, image=? WHERE id=?', [ req.body.name, req.body.uri, fileName, req.body.id ], function(err) {
+					if (req.body.id) {
+						query = `UPDATE cards SET name='${req.body.name}', uri='${req.body.uri}', image='${fileName}' WHERE id=${req.body.id}`;
+					}
+					else {
+						query = `INSERT INTO cards SET name='${req.body.name}', uri='${req.body.uri}', image='${fileName}'`; 
+					}
+					db.run(query, function(err) {
 						if (err) throw err;
 						res.redirect('/cards/edit/' + req.params.id);
 					});
@@ -111,17 +125,52 @@ app.post('/cards/edit/:id', function(req, res) {
 	}
 	else {
 		// Just update
-		db.run('UPDATE cards SET name=?, uri=?, image=? WHERE id=?', [ req.body.name, req.body.uri, req.body.image, req.body.id ], function(err) {
+		if (req.body.id) {
+			console.log(req.body.id);
+			query = `UPDATE cards SET name='${req.body.name}', uri='${req.body.uri}', image='${req.body.image}' WHERE id=${req.body.id}`;
+		}
+		else {
+			query = `INSERT INTO cards (name, uri, image)VALUES ('${req.body.name}', '${req.body.uri}', '${req.body.image}')`; 
+		}
+		console.log(query);
+		db.run(query, function(err) {
 			if (err) throw err;
 			res.redirect('/cards/edit/' + req.params.id);
 		});
 	}
 });
 
-// app.get('/cards/read', function(req, res) {
-//     var reader = new CardReader.CardReader();
-//     reader.read();
-// });
+
+app.get('/cards/new', function(req, res) {
+	res.render('cards/new');
+});
+
+
+app.get('/dir/get/:path?', function(req, res) {
+
+	const path = (req.params.path) ? req.params.path : '';
+
+	// TODO: Use file path builder if possible
+	const dir = audioDir + '/' + path;
+
+	fs.readdir(dir, { withFileTypes: true }, (err, items) => {
+		if (err) {
+			console.log('Error reading directory: ' + dir);
+		}
+
+		var results = [];
+		if (items) {
+			items.forEach(item => {
+				results.push({
+					name: item.name,
+					isDir: item.isDirectory()
+				});
+			});
+		}
+		res.json(results);
+	});
+});
+
 
 app.get('/cards/read', function(req, res) {
     res.render('cards/read');
@@ -146,7 +195,7 @@ app.get('/stream', function(req, res) {
     });
     res.write('\n');
 
-	var reader = new CardReader.CardReader();
+	var reader = new CardReaderWriter.CardReaderWriter();
 
 	// Loop reading a card 
 	(function doRead() {
