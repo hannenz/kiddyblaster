@@ -135,3 +135,18 @@ void player_play_uri(const char *uri) {
     mpd_connection_free(mpd);
 }
 
+void player_replay_playlist() {
+    struct mpd_connection *mpd;
+
+    mpd = mpd_connection_new("localhost", 6600, 0);
+    if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
+        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        return;
+    }
+
+    mpd_run_stop(mpd);
+    mpd_run_play_pos(mpd, 0);
+
+    mpd_connection_free(mpd);
+
+}

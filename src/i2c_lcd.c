@@ -71,6 +71,22 @@ void lcd_loc(int line) {
 
 
 /**
+ * Refresh the content of the LCD
+ *
+ * Needed as workaround to be called periodically to avoid gibberish content on
+ * the LCD
+ *
+ * @param void
+ * @return void
+ */
+void lcd_refresh() {
+	lcd_puts(LCD_LINE_1, content[0]);
+	lcd_puts(LCD_LINE_2, content[1]);
+}
+
+
+
+/**
  * Output string on LCD display
  *
  * @param int           Line (0x80 or 0xc0), use constants LCD_LINE_1 ...
@@ -142,3 +158,8 @@ void lcd_init() {
     }
     gpioDelay(500);
 }
+
+void lcd_deinit() {
+    i2cClose(fd);
+}
+

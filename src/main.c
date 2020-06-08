@@ -34,12 +34,10 @@
 #include "card_reader.h"
 #include "card.h"
 #include "network_info.h"
+#include "browser.h"
 
-typedef void (*sighandler_t)(int);
+/* typedef void (*sighandler_t)(int); */
 
-
-#define PRG_NAME "kiddyblaster"
-#define DAEMON_NAME "kiddyblasterd"
 
 #define BUTTON_1_PIN 23     // PLAY
 #define BUTTON_2_PIN 26     // PREV
@@ -54,7 +52,7 @@ enum {
     TIMER_NR_SLEEP
 };
 
-#define BACKLIGHT_OFF_TIMEOUT 15000
+#define BACKLIGHT_OFF_TIMEOUT 60 * 1000
 
 // Globals
 int timer = 0;  // seconds 
@@ -62,9 +60,8 @@ int micros;     // dummy, unused but we need it to pass to gpioTime()
 bool is_sleeping = false;
 int current_song = 0;
 bool running = true;
-GList *directories;
-GList *selected_dir;
 bool select_mode = false;
+Browser *browser;
 
 
 
@@ -73,6 +70,7 @@ void update_lcd();
 /* static void start_daemon(const char*, int); */
 static void read_directories(const char *path, int depth);
 static void display_network_info();
+/* static void read_directories(const char *path, int depth); */
 
 
 
@@ -166,9 +164,15 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                 case BUTTON_1_PIN:
                     if (select_mode) {
                         select_mode = false;
-                        char *uri = selected_dir->data;
-                        syslog(LOG_NOTICE, "Playing URI: %s\n", uri);
-                        player_play_uri(uri);
+                        const gchar *uri = browser_get_selected_directory(browser);
+                        if (uri != NULL) {
+                            syslog(LOG_NOTICE, "Playing URI: %s\n", uri);
+                            player_play_uri(uri);
+                            update_lcd();
+                        }
+                        else {
+                            syslog(LOG_WARNING, "Failed to get selected path fromr file browser");
+                        }
                     }
                     else {
                         syslog(LOG_NOTICE, "|| TOGGLE\n");
@@ -178,9 +182,7 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 
                 case BUTTON_2_PIN:
                     if (select_mode) {
-                        if (selected_dir->prev != NULL) {
-                            selected_dir = selected_dir->prev;
-                        }
+                        browser_previous(browser);
                     }
                     else {
                         syslog(LOG_NOTICE, "<< PREV\n");
@@ -190,9 +192,7 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 
                 case BUTTON_3_PIN:
                     if (select_mode) {
-                        if (selected_dir->next != NULL) {
-                            selected_dir = selected_dir->next;
-                        }
+                        browser_next(browser);
                     }
                     else {
                         syslog(LOG_NOTICE, ">> NEXT\n");
@@ -207,16 +207,19 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
         else if (duration < 5000) {
             switch (pin) {
                 case BUTTON_1_PIN:
-                    display_network_info();
-                    do_update_lcd = false;
+                    // Re-play current playlist from start
+                    player_replay_playlist();
                     break;
 
                 case BUTTON_2_PIN:
-                    // Not implemented yet... 
+                    // Re-init LCD
+                    lcd_deinit();
+                    lcd_init();
                     break;
 
                 case BUTTON_3_PIN:
-                    // Not implemented yet... 
+                    display_network_info();
+                    do_update_lcd = false;
                     break;
             }
         }
@@ -227,11 +230,11 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
             switch (pin) {
                 case BUTTON_1_PIN:
                     // Power off the musicbox
-                    /* syslog(LOG_NOTICE, ".. SHUTDOWN\n"); */
+                    syslog(LOG_NOTICE, ".. SHUTDOWN\n");
                     lcd_clear();
                     lcd_puts(LCD_LINE_1, "Tschüß..!");
-                    /* sync(); */
-                    /* reboot(LINUX_REBOOT_CMD_POWER_OFF); */
+                    sync();
+                    reboot(LINUX_REBOOT_CMD_POWER_OFF);
                     break;
 
                 case BUTTON_2_PIN:
@@ -244,12 +247,8 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 
                 case BUTTON_3_PIN:
                     syslog(LOG_NOTICE, "Entering WRITE MODE\n");
-                    g_list_free_full(directories, g_free);
-                    directories = NULL;
-                    select_mode = true;
-
-                    read_directories("/home/pi/Music", 0);
-                    selected_dir = directories;
+                    select_mode = TRUE;
+                    browser_start_browsing(browser);
                     break;
             }
         }
@@ -278,10 +277,11 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 void update_lcd() {
     if (select_mode) {
         lcd_clear();
-        lcd_puts(LCD_LINE_1, "Select dir      ");
-        if (selected_dir != NULL && selected_dir->data != NULL) {
-            lcd_puts(LCD_LINE_2, selected_dir->data);
+        const gchar *uri = browser_get_selected_directory(browser);
+        if (uri != NULL) {
+            lcd_puts(LCD_LINE_1, uri);
         }
+        lcd_puts(LCD_LINE_2, "SEL     ↑     ↓ ");
     }
     else {
         struct mpd_connection *mpd;
@@ -326,53 +326,6 @@ void update_lcd() {
 
 
 
-/* static sighandler_t handle_signal(int sig_nr, sighandler_t signalhandler) { */
-/*     struct sigaction new_sig, old_sig; */
-/*  */
-/*     new_sig.sa_handler = signalhandler; */
-/*     sigemptyset(&new_sig.sa_mask); */
-/*     new_sig.sa_flags = SA_RESTART; */
-/*     if (sigaction(sig_nr, &new_sig, &old_sig) < 0) { */
-/*         return SIG_ERR; */
-/*     } */
-/*     return old_sig.sa_handler; */
-/* } */
-/*  */
-/*  */
-/*  */
-/* static void start_daemon(const char *log_name, int facility) { */
-/*     int i; */
-/*     pid_t pid; */
-/*  */
-/*     // Terminate parent process, creating a widow which will be handled by init */
-/*     if ((pid = fork()) != 0) { */
-/*         exit (EXIT_FAILURE); */
-/*     } */
-/*  */
-/*     // child process becomes session leader */
-/*     if (setsid() < 0) { */
-/*         printf("%s can not become session leader\n", log_name); */
-/*         exit(EXIT_FAILURE); */
-/*     } */
-/*  */
-/*     // Ignore SIGHUP */
-/*     handle_signal(SIGHUP, SIG_IGN); */
-/*  */
-/*     // Terminate the child */
-/*     if ((pid = fork()) != 0) { */
-/*         exit(EXIT_FAILURE); */
-/*     } */
-/*  */
-/*     chdir("/"); */
-/*     umask(0); */
-/*     for (i = sysconf(_SC_OPEN_MAX); i > 0; i--) { */
-/*         close(i); */
-/*     } */
-/*  */
-/*     openlog(log_name, LOG_PID | LOG_CONS | LOG_NDELAY, facility); */
-/*     syslog(LOG_NOTICE, "Daemon has been started\n"); */
-/* } */
-/*  */
 
 static void display_network_info() {
     syslog(LOG_NOTICE, "Displaying network info");
@@ -414,49 +367,61 @@ static void on_card_detected(int card_id) {
 
 
 
-static void read_directories(const char *path, int depth) {
-    DIR *dir;
-    struct dirent *ent;
 
-    if ((dir = opendir(path)) == NULL) {
-        return;
-    }
 
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_type == DT_DIR) {
-            if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
-                continue;
-            }
-            /* syslog(LOG_INFO, "%s\n", ent->d_name); */
-            /* printf("%*s[%s]\n", depth, "", ent->d_name); */
-            directories = g_list_append(directories, g_strdup(ent->d_name));
+void clean_up() {
+    lcd_clear();
+    lcd_puts(LCD_LINE_1, "***  BYE!  ***");
+    syslog(LOG_INFO, "Cleaning up before exit");
+    gpioTerminate();
+    free(browser);
+}
 
-            char new_path[1024];
-            snprintf(new_path, sizeof(new_path), "%s/%s", path, ent->d_name);
-            read_directories(new_path, depth + 4);
-        }
-    }
 
-    closedir(dir);
-    return;
+// Called on signal SIGTERM.
+void on_sigterm(int signum) {
+    syslog(LOG_INFO, "Caught SIGTERM, terminating main loop to exit");
+    running = false;
 }
 
 
 int main() {
 
-    /* start_daemon(DAEMON_NAME, LOG_LOCAL0); */
-
-
     // Setup pigpio lib
     if (gpioInitialise() < 0) {
-        syslog(LOG_ERR, "Failed to initializ GPIO\n");
+        syslog(LOG_ERR, "Failed to initialize GPIO\n");
+        exit(-1);
     }
 
-    player_pause();
+
+    // Catch SIGTERM 
+    struct sigaction action;
+    memset(&action, 0, sizeof(struct sigaction));
+    action.sa_handler = on_sigterm;
+    sigaction(SIGTERM, &action, NULL);
+
+    // Register clean-up function
+    atexit(clean_up);
+
+    // Write own PID to /var/run
+    pid_t pid = getpid();
+    FILE *runfile = fopen("/var/run/kiddyblaster", "w");
+    if (runfile == NULL) {
+        syslog(LOG_ERR, "Failed to write /var/run/kiddyblaster");
+    }
+    fprintf(runfile, "%u", pid);
+    fclose(runfile);
+
+
+	// Handled in mpd.conf with `restore_paused "yes"`
+    // player_pause();
 
     // Init LCD display
     lcd_init();
     update_lcd();
+    lcd_clear();
+    update_lcd();
+    syslog(LOG_INFO, "*** KIDDYBLASTER STARTING UP ***");
 
     // Init MFRC522 card reader
     card_reader_init();
@@ -498,7 +463,9 @@ int main() {
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
     // Register clean-up function
-    /* atexit(clean_up); */
+    atexit(clean_up);
+
+    browser = browser_new("/home/pi/Music");
 
     // Start an endless loop
     while (running) {
@@ -524,14 +491,11 @@ int main() {
         }
     }
 
-    lcd_clear();
-    lcd_puts(LCD_LINE_1, "Bye bye!");
-
     // Clean-up and terminate
     syslog(LOG_NOTICE, "Terminating\n");
     gpioStopThread(card_reader);
+    clean_up();
     closelog();
-
     return 0;
 }
 

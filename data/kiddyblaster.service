@@ -4,7 +4,7 @@ Description=KiddyBlaster
 [Service]
 Type=simple
 Restart=always
-ExecStartPre=/usr/bin/aplay --device=hw:CARD=Device,DEV=0 /usr/local/share/kiddyblaster/success.wav
+ExecStartPre=-/usr/bin/aplay --device=hw:CARD=Device,DEV=0 /usr/local/share/kiddyblaster/success.wav
 ExecStart=/usr/local/bin/kiddyblaster
 
 [Install]

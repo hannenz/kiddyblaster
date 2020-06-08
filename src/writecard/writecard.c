@@ -13,6 +13,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sqlite3.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <errno.h>
 #include "../bcm2835.h" 
 #include "../mfrc522.h"
 #include "../card.h"
@@ -21,6 +26,44 @@ extern Uid uid;
 
 // This is the default key for authentication
 static MIFARE_Key auth_key = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }};
+
+
+/**
+ * Checks whether the main kiddyblaster service is running by checking its
+ * pidfile at /var/rurn/kiddyblaster and test for this PID is currently running
+ *
+ * @return int          0 if not running, 1 if running
+ */
+int kiddyblaster_is_running() {
+    FILE *runfile;
+    pid_t pid;
+    int n, retval = 0;
+
+    runfile = fopen("/var/run/kiddyblaster", "r");
+    if (runfile == NULL) {
+        if (errno == ENOENT) {
+            // File does not exist, so we assume the service is simply not running
+            // No need to close the file
+            return 1;
+        }
+        else {
+            // Else we  have some sort of "hard error", no need to close the file
+            fprintf(stderr, "Failed to open file /var/run/kiddyblaster\n");
+            exit(-1);
+        }
+    }
+
+    // Read PID from file and try to send a signal to it
+    if (fscanf(runfile, "%u", &pid) == 1) {
+        if (kill(pid, 0) == 0) {
+            // Succeessfully sent a signal > process is running
+            retval = 1;
+        }
+    }
+
+    fclose(runfile);
+    return retval;
+}
 
 int write_card(const char *name, const char *uri) {
     int card_id, i;
@@ -149,8 +192,15 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+
+    if (kiddyblaster_is_running()) {
+        fprintf(stderr, "Kiddyblaster is still running. Stop it with `systemctl stop kiddyblaster.service` and try again\n");
+        return -1;
+    }
+
+
 	if (getuid() != 0) {
-		printf("%s must be run as root!\n", argv[0]);
+		fprintf(stderr, "%s must be run as root!\n", argv[0]);
 		return -1;
 	}
 
@@ -174,5 +224,8 @@ int main(int argc, char **argv) {
 
     /* gpioTerminate(); */
     bcm2835_close();
+
+    printf("You should restart kiddyblaster now with `systemctl start kiddyblaster.service`\n");
+
     return 0;
 }

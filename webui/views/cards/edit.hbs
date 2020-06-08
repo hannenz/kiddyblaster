@@ -5,6 +5,11 @@
 	<div class="stack">
 
 		<div class="form-field">
+			<label for="id">ID</label>
+			<input readonly type="text" value="{{id}}" name="id" id="" />
+		</div>
+
+		<div class="form-field">
 			<label for="name">Titel</label>
 			<input type="text" id="name" name="name" value="{{name}}" autofocus />
 		</div>
@@ -12,6 +17,16 @@
 		<div class="form-field">
 			<label for="uri">Pfad zu Audio-Dateien</label>
 			<input type="text" id="uri" name="uri" value="{{uri}}" />
+			<input type="hidden" id="uri-ghost" name="uri-ghost" value="{{uri}}" />
+		</div>
+
+		<div id="file-select-dialog" class="dialog dialog--is-modal" hidden>
+			<ul id="file-list" class="file-list">
+			</ul>
+			<div class="dialog-action-area">
+				<button type="button" id="file-select-dialog-close-btn">&times; Abbrechen</button>
+				<button type="button" id="file-select-dialog-apply-btn">&check; OK</button>
+			</div>
 		</div>
 
 		<div id="file-select-dialog" class="dialog dialog--is-modal" hidden>
