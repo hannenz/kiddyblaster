@@ -185,4 +185,23 @@ Then open a browser and open `ip-address-of-raspi:4444`
 
 - Decide on ONE GPIO library (pigpio vs. bcm2835), discussion here: https://www.bigmessowires.com/2018/05/26/raspberry-pi-gpio-programming-in-c/
     also important: pigpio is apt-get'able, bcm2835 must be compiled manually
+	
+Update 2020-05-31
+Trying to use upmpdcli as link to control with UPnP (e.g. BubbleUPNP
+from phone)
+
+Install upmpdcli
+
+```
+echo << EOF
+deb http://www.lesbonscomptes.com/upmpdcli/downloads/raspbian/ buster main
+deb-src http://www.lesbonscomptes.com/upmpdcli/downloads/raspbian/ buster main
+EOF > /etc/apt/sources.list.d/upmpdcli.list
+sudo apt-key adv --keyserver pool.sks-keyservers.net --recv-keys F8E3347256922A8AE767605B7808CE96D38B9201
+sudo apt install upmpdcli
+```
+
+Links:
+https://www.lesbonscomptes.com/pages/raspmpd.html
+https://www.avforums.com/threads/raspberry-pi-as-minimalist-high-quality-upnp-audio-renderer.2219598/
 
