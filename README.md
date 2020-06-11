@@ -182,4 +182,7 @@ Then open a browser and open `ip-address-of-raspi:4444`
 - Finish  WebUI
 - Button labels
 - Browse / Play directory without card (we need 4 buttons for this!)
-	
+
+- Decide on ONE GPIO library (pigpio vs. bcm2835), discussion here: https://www.bigmessowires.com/2018/05/26/raspberry-pi-gpio-programming-in-c/
+    also important: pigpio is apt-get'able, bcm2835 must be compiled manually
+
