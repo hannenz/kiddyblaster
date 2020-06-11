@@ -12,6 +12,13 @@
 #define LCD_BACKLIGHT 0x08
 #define ENABLE 0b00000100 // Enable bit
 
+#define LCD_CHAR_WIFI_0 0
+#define LCD_CHAR_WIFI_1 1
+#define LCD_CHAR_WIFI_2 2
+#define LCD_CHAR_WIFI_3 3
+#define LCD_CHAR_PAUSE 4
+#define LCD_CHAR_PLAY 5
+
 
 
 void lcd_init();

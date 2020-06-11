@@ -285,7 +285,7 @@ void update_lcd() {
     }
     else {
         struct mpd_connection *mpd;
-        char str[17], *states[] = { "??", "..", "|>", "||" };
+        char str[17], states[] = { '?', '.', LCD_CHAR_PLAY, LCD_CHAR_PAUSE };
         int n, m;
 
         mpd = mpd_connection_new("localhost", 6600, 0);
@@ -316,11 +316,21 @@ void update_lcd() {
         mpd_status_free(status);
         mpd_connection_free(mpd);
 
-        snprintf(str, sizeof(str), "%02u/%02u       [%s]", n, m, states[state]);
+        snprintf(str, sizeof(str), "%c %02u/%02u         ", states[state], n, m);
         lcd_puts(LCD_LINE_1, str);
 
         snprintf(str, sizeof(str), "%-16s", title);
         lcd_puts(LCD_LINE_2, str);
+
+        wifi_info_t wifi_info;
+        get_wifi_info(&wifi_info);
+
+        int level = wifi_info.link_quality / 25;
+        if (level > 3) {
+            level = 3;
+        }
+        lcd_loc(0x8f);
+        lcd_byte(level, LCD_CHR);
     }
 }
 
@@ -332,7 +342,7 @@ static void display_network_info() {
     lcd_clear();
     wifi_info_t wifi_info;
     get_wifi_info(&wifi_info);
-    char buf[16];
+    char buf[17];
     snprintf(buf, sizeof(buf), "%03u,%03u,%03u", wifi_info.link_quality, wifi_info.signal_level, wifi_info.noise_level);
     syslog(LOG_NOTICE, buf);
     lcd_puts(LCD_LINE_1, buf);
@@ -370,9 +380,11 @@ static void on_card_detected(int card_id) {
 
 
 void clean_up() {
+    syslog(LOG_INFO, "Cleaning up before exit");
     lcd_clear();
     lcd_puts(LCD_LINE_1, "***  BYE!  ***");
-    syslog(LOG_INFO, "Cleaning up before exit");
+    lcd_set_backlight(false);
+    player_pause();
     gpioTerminate();
     free(browser);
 }
@@ -399,6 +411,10 @@ int main() {
     memset(&action, 0, sizeof(struct sigaction));
     action.sa_handler = on_sigterm;
     sigaction(SIGTERM, &action, NULL);
+    sigaction(SIGKILL, &action, NULL);
+    sigaction(SIGHUP, &action, NULL);
+    sigaction(SIGINT, &action, NULL);
+
 
     // Register clean-up function
     atexit(clean_up);
