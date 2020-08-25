@@ -305,33 +305,33 @@ void update_lcd() {
 
         struct mpd_song *song = mpd_run_get_queue_song_id(mpd, song_id);
         char *title;
-        if (!song) {
-            return;
+        if (song) {
+            title = (char*)mpd_song_get_tag(song, MPD_TAG_TITLE, 0);
+
+            n = mpd_status_get_song_pos(status) + 1;
+            m = mpd_status_get_queue_length(status);
+
+            mpd_status_free(status);
+            mpd_connection_free(mpd);
+
+            snprintf(str, sizeof(str), "%c %02u/%02u         ", states[state], n, m);
+            lcd_puts(LCD_LINE_1, str);
+
+            snprintf(str, sizeof(str), "%-16s", title);
+            lcd_puts(LCD_LINE_2, str);
         }
-        title = (char*)mpd_song_get_tag(song, MPD_TAG_TITLE, 0);
-
-        n = mpd_status_get_song_pos(status) + 1;
-        m = mpd_status_get_queue_length(status);
-
-        mpd_status_free(status);
-        mpd_connection_free(mpd);
-
-        snprintf(str, sizeof(str), "%c %02u/%02u         ", states[state], n, m);
-        lcd_puts(LCD_LINE_1, str);
-
-        snprintf(str, sizeof(str), "%-16s", title);
-        lcd_puts(LCD_LINE_2, str);
-
-        wifi_info_t wifi_info;
-        get_wifi_info(&wifi_info);
-
-        int level = wifi_info.link_quality / 25;
-        if (level > 3) {
-            level = 3;
-        }
-        lcd_loc(0x8f);
-        lcd_byte(level, LCD_CHR);
     }
+
+    wifi_info_t wifi_info;
+    puts("about to call get_wifi_info()");
+    get_wifi_info(&wifi_info);
+
+    int level = wifi_info.link_quality / 25;
+    if (level > 3) {
+        level = 3;
+    }
+    lcd_loc(0x8f);
+    lcd_byte(level, LCD_CHR);
 }
 
 
@@ -417,7 +417,7 @@ int main() {
 
 
     // Register clean-up function
-    atexit(clean_up);
+    /* atexit(clean_up); */
 
     // Write own PID to /var/run
     pid_t pid = getpid();
@@ -434,7 +434,7 @@ int main() {
 
     // Init LCD display
     lcd_init();
-    update_lcd();
+    /* update_lcd(); */
     lcd_clear();
     update_lcd();
     syslog(LOG_INFO, "*** KIDDYBLASTER STARTING UP ***");
@@ -478,9 +478,6 @@ int main() {
     pthread_t *card_reader;
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
-    // Register clean-up function
-    atexit(clean_up);
-
     browser = browser_new("/home/pi/Music");
 
     // Start an endless loop
@@ -488,6 +485,7 @@ int main() {
         int now, seconds_left;
         /* gpioDelay(5000000); */
         gpioSleep(PI_TIME_RELATIVE, 5, 0);
+
 
         if (is_sleeping) {
             continue;
@@ -498,6 +496,9 @@ int main() {
             syslog(LOG_ERR, "Failed to get time\n");
             continue;
         }
+
+        puts("about to call update_lcd()");
+        update_lcd();
 
         seconds_left = SLEEP_TIMER - (now - timer);
         syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60);

@@ -15,10 +15,83 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <syslog.h>
+#include <linux/wireless.h>
+#include <stdbool.h>
+
 #include "network_info.h"
 
 
+
 int get_wifi_info(wifi_info_t *wifi) {
+
+    struct ifaddrs *ifaddr, *ifa;
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("Error getting interface address");
+        return -1;
+    }
+
+    /* if (ifaddr == NULL) { */
+    /*     syslog(LOG_WARNING, "ifaddr is NULL"); */
+    /*     perror("ifaddr is NULL"); */
+    /*     return -1; */
+    /* } */
+
+    bool wlan0_found = false;
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        printf("ifa->name: %s\n", ifa->ifa_name);
+        if (strcmp(ifa->ifa_name, "wlan0") == 0) {
+            wlan0_found = true;
+            break;
+        }
+    }
+
+    char essid[IW_ESSID_MAX_SIZE + 1];
+    struct iwreq request;
+    struct iw_statistics iwstats;
+    int sock;
+
+    if (wlan0_found) {
+        strncpy(request.ifr_name, ifa->ifa_name, IFNAMSIZ);
+    }
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == -1) {
+        return 1;
+    }
+
+    if (ioctl(sock, SIOCGIWNAME, &request) == 0) {
+        // we are not interested 
+    }
+
+    freeifaddrs(ifaddr);
+
+    request.u.essid.pointer = essid;
+    if (ioctl(sock, SIOCGIWESSID, &request) == -1) {
+        perror("ioctl() failed when trying to get ESSID");
+        return -1;
+    }
+    
+    printf("ESSID: %s\n", request.u.essid.pointer);
+
+    memset(&iwstats, 0, sizeof(iwstats));
+    request.u.data.pointer = &iwstats;
+    request.u.data.length = sizeof(struct iw_statistics);
+    request.u.data.flags = 1;
+
+    if (ioctl(sock, SIOCGIWSTATS, &request) == -1) {
+        perror("Can't open socket to obtain iwstats");
+        return -1;
+    }
+
+    printf("Signal level: %d\n", iwstats.qual.updated);
+
+    return 0;
+}
+
+
+int _get_wifi_info(wifi_info_t *wifi) {
 
     FILE *fp;
     static const char* cmd = "iwconfig wlan0 | grep -i quality";

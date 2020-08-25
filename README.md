@@ -35,11 +35,12 @@ Thus I decidede to add a RJ52 plug for maintenance.
 - bcm2835 (Todo: Get rid of one of the two...)
 - libsqlite3-dev
 - libglib2.0-dev
+- libiw-dev
 
 On raspbian with apt:
 
 ```
-sudo apt install libmpdclient-dev pigpio libsqlite3-dev libglib2.0-dev
+sudo apt install libmpdclient-dev pigpio libsqlite3-dev libglib2.0-dev libiw-dev
 ```
 
 and follow the instructions on `http://www.airspayce.com/mikem/bcm2835/` to install the bcm2835 library
