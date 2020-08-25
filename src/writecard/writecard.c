@@ -17,12 +17,14 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include "../bcm2835.h" 
 #include "../mfrc522.h"
 #include "../card.h"
 
 extern Uid uid;
+const char *path_to_uri(const char *_path);
 
 // This is the default key for authentication
 static MIFARE_Key auth_key = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }};
@@ -65,10 +67,40 @@ int kiddyblaster_is_running() {
     return retval;
 }
 
-int write_card(const char *name, const char *uri) {
-    int card_id, i;
 
-    printf("About to write:\nname = %s\nuri=%s\n\n", name, uri);
+/*
+ * Verify that a path exists and is a directory
+ *
+ * @param const char* 		uri  Ptah to check
+ * @return int 				success
+ */
+int verify_path(const char *uri) {
+	struct stat sb;
+
+	return (stat(uri, &sb) == 0 && S_ISDIR(sb.st_mode));
+}
+
+
+/**
+ * write a card and associate with given name and uri
+ *
+ * @param const char* name
+ * @param const char *uri
+ * @return int      Success / 0 if card has been written, 1 if not (aborted, or path at URI does not exist)
+ */
+int write_card(const char *name, const char *_uri) {
+    int card_id, i;
+    /* char *uri = (char*)path_to_uri(_uri); */
+    const char *uri;
+
+	if (!verify_path(_uri)) {
+		printf("Path at URI '%s' does not exist or is not a directory\n", uri);
+		return 1;
+	}
+
+    uri = path_to_uri(_uri);
+
+    printf("About to write:\nname = %s\nuri  = %s\n\n", name, uri);
     printf("Waiting for card - hold a card near the reader or press CTRL+c to abort\n");
 
     for(i = 0; i < 1000 ; i++) {
@@ -118,7 +150,7 @@ int write_card(const char *name, const char *uri) {
             } while (isspace(answer));
             if (answer != 'y' && answer != 'Y') {
                 printf("Aborted.\n");
-                return 0;
+                return 1;
             }
 
             strncpy(card->name, name, sizeof(card->name));
@@ -163,12 +195,32 @@ int write_card(const char *name, const char *uri) {
     return 0;
 }
 
-const char *path_to_uri(const char *path) {
-    // do sth like str_replace('/home/pi/Music/', '', path)
-    // Trim trailing slashes
-    // Trim leading slashes
 
-    const char *uri = malloc(512);
+// do sth like str_replace('/home/pi/Music/', '', path)
+const char *path_to_uri(const char *path) {
+
+    /** TODO! Read this from /etc/mpd.conf **/
+    const char *musicdir = "/home/pi/Music/";
+    char *uri = malloc(strlen(path));
+    int i;
+
+    strncpy(uri, path, strlen(musicdir));
+    if (strncmp(uri, musicdir, strlen(musicdir)) == 0) {
+        printf("Match!\n");
+        strncpy(uri, path + strlen(musicdir), strlen(path) - strlen(musicdir));
+    }
+    else {
+        printf("No match!\n");
+        uri = (char*)path;
+    }
+
+    // trim trailing slashes from uri (which is important for MPD to recognize
+    // the path correctly)
+    for (i = strlen(uri) - 1; i > 0 && uri[i] == '/'; i--) {
+        uri[i] = '\0';
+    }
+
+    printf("URI derived from path: %s\n", uri);
 
     return uri;
 }
@@ -183,6 +235,8 @@ static void usage() {
     puts("              trailing slashes, e.g. `Audiobooks/Das Dschungelbuch`\n");
 	puts("NOTE: writecard must be run with root privileges\n");
 }
+
+
 
 int main(int argc, char **argv) {
     const char *uri, *name;
@@ -220,12 +274,14 @@ int main(int argc, char **argv) {
     name = argv[1];
     uri = argv[2];
 
-    write_card(name, uri);
+    int ret = write_card(name, uri);
+    if (ret == 0) {
+        printf("Card has been written successfully. You should restart kiddyblaster now with `systemctl start kiddyblaster.service`\n");
+    }
+
 
     /* gpioTerminate(); */
     bcm2835_close();
-
-    printf("You should restart kiddyblaster now with `systemctl start kiddyblaster.service`\n");
 
     return 0;
 }
