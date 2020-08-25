@@ -50,7 +50,8 @@ install:
 
 	# Needs to be writable
 	[ -e /var/lib/kiddyblaster ] || mkdir -m 755 /var/lib/kiddyblaster
-	install -m 644 $(DATA_DIR)/cards.sql /var/lib/kiddyblaster/
+	# Only install if not exists yet, we don't want to overwrite an existing database!
+	[ -e /var/lib/kiddyblaster/cards.sql ] || install -m 644 $(DATA_DIR)/cards.sql /var/lib/kiddyblaster/
 
 	# Install systemd service 
 	install -m 644 $(DATA_DIR)/kiddyblaster.service /etc/systemd/system/
