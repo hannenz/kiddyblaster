@@ -148,52 +148,57 @@ int write_card(const char *name, const char *_uri) {
             do {
                 answer = getchar();
             } while (isspace(answer));
-            if (answer != 'y' && answer != 'Y') {
-                printf("Aborted.\n");
-                return 1;
-            }
-
-            strncpy(card->name, name, sizeof(card->name));
-            strncpy(card->uri, uri, sizeof(card->uri));
-            card_write(card);
-            printf("Card #%u has been updated\n", card->id);
-            break;
-        }
-        else {
-            // If no: Insert new database entry, get lastinsertid and write this to card
-            card = malloc(sizeof(Card));
-            card->id = 0;
-            strncpy(card->name, name, 100);
-            strncpy(card->uri, uri, 256);
-            printf("Writing new card data to db\n");
-            printf("New card|name: %s\n", card->name);
-            printf("New card|uri : %s\n", card->uri);
-            int new_id = card_write(card);
-            if (new_id <= 0) {
-                fprintf(stderr, "Something went wrong when trying to write new Card to database\n");
+            if (answer == 'y' || answer == 'Y') {
+                strncpy(card->name, name, sizeof(card->name));
+                strncpy(card->uri, uri, sizeof(card->uri));
+                card_write(card);
+                printf("Card #%u has been updated\n", card->id);
                 break;
             }
-
-            // Write new ID to card
-            printf("Writing new ID #%u to card\n", new_id);
-            byte data[] = {
-                (new_id % 256), (new_id / 256), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            };
-
-            int r;
-            if ((r = mfrc522_mifare_write(8, data, sizeof(data))) != STATUS_OK) {
-                fprintf(stderr, "Write failed: %u! :-/\n", r);
+            else {
+                printf("Hold card to reader to write card with a NEW entry and press any key when ready, or press CTRL-C to abort\n");
+                do {
+                    answer = getchar();
+                } while (isspace(answer));
             }
-            mfrc522_pcd_stop_crypto_1();
+        }
 
-            printf("Done.");
+        // If no (or aborted above): Insert new database entry, get lastinsertid and write this to card
+        card = malloc(sizeof(Card));
+        card->id = 0;
+        strncpy(card->name, name, 100);
+        strncpy(card->uri, uri, 256);
+        printf("Writing new card data to db\n");
+        printf("New card|name: %s\n", card->name);
+        printf("New card|uri : %s\n", card->uri);
+        int new_id = card_write(card);
+        if (new_id <= 0) {
+            fprintf(stderr, "Something went wrong when trying to write new Card to database\n");
             break;
         }
+
+        // Write new ID to card
+        printf("Writing new ID #%u to card\n", new_id);
+        byte _data[] = {
+            (new_id % 256), (new_id / 256), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        };
+
+        int r;
+        if ((r = mfrc522_mifare_write(8, _data, sizeof(_data))) != STATUS_OK) {
+            fprintf(stderr, "Write failed: %u! :-/\n", r);
+        }
+        mfrc522_pcd_stop_crypto_1();
+
+        printf("Done.");
+        break;
+
     }
 
     return 0;
 }
+
+
 
 
 // do sth like str_replace('/home/pi/Music/', '', path)
