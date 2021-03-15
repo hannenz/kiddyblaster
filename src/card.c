@@ -30,7 +30,7 @@ Card* card_read(int card_id) {
     char str[512], *error_message = 0;
     sqlite3 *db;
     int rc;
-    Card *card = malloc(sizeof(Card));
+    Card *card = (Card*)malloc(sizeof(Card));
     card->id = 0;
     card->name[0] = '\0';
     card->uri[0] = '\0';

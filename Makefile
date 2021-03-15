@@ -1,4 +1,6 @@
 # Makefile from https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
+CC=arm-linux-gnueabihf-gcc
+CXX=arm-linux-gnueabihf-g++
 TARGET_EXEC ?= kiddyblaster
 BUILD_DIR ?= ./build
 SRC_DIRS ?= ./src
@@ -9,11 +11,16 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
-INC_FLAGS := $(addprefix -I,$(INC_DIRS))
+INC_FLAGS := $(addprefix -I,$(INC_DIRS))  -I/home/hannenz/pidev/libs/include
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -Wall
-CFLAGS:=`pkg-config --cflags glib-2.0`
-LDFLAGS:=-pthread -lpigpio -lmpdclient -lbcm2835 -lrt -lsqlite3 `pkg-config --libs glib-2.0`
+# Flags for C Compiler
+CFLAGS:=-Wall -g -O3 
+
+# Preprocessor flags
+CPPFLAGS ?= $(INC_FLAGS) -DLIB_PIGPIO
+
+# Linker flags
+LDFLAGS:=-L/home/hannenz/pidev/libs/lib -pthread -lpigpio -lmpdclient -lrt -lsqlite3
 
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) 

@@ -9,7 +9,6 @@
  * @package kiddyblaster
  * @version Sun Jan 20 10:04:57 UTC 2019
  */
-#include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,7 +67,6 @@ Browser *browser;
 // Prototypes
 void update_lcd();
 /* static void start_daemon(const char*, int); */
-static void read_directories(const char *path, int depth);
 static void display_network_info();
 /* static void read_directories(const char *path, int depth); */
 
@@ -164,7 +162,7 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                 case BUTTON_1_PIN:
                     if (select_mode) {
                         select_mode = false;
-                        const gchar *uri = browser_get_selected_directory(browser);
+                        const char *uri = browser_get_selected_directory(browser);
                         if (uri != NULL) {
                             syslog(LOG_NOTICE, "Playing URI: %s\n", uri);
                             player_play_uri(uri);
@@ -246,8 +244,8 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                     break;
 
                 case BUTTON_3_PIN:
-                    syslog(LOG_NOTICE, "Entering WRITE MODE\n");
-                    select_mode = TRUE;
+                    syslog(LOG_NOTICE, "Entering SELECT MODE\n");
+                    select_mode = true;
                     browser_start_browsing(browser);
                     break;
             }
@@ -277,11 +275,19 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 void update_lcd() {
     if (select_mode) {
         lcd_clear();
-        const gchar *uri = browser_get_selected_directory(browser);
-        if (uri != NULL) {
-            lcd_puts(LCD_LINE_1, uri);
+		const char *base_path = "/home/pi/Music/";
+        const char *uri = browser_get_selected_directory(browser);
+		if (uri != NULL) {
+			syslog(LOG_NOTICE, "Selected: %s", uri);
+			int n;
+			for (n = 0; n < strlen(uri); n++) {
+				if (uri[n] != base_path[n]) {
+					break;
+				}
+			}
+            lcd_puts(LCD_LINE_1, (const char*)&uri[n]);
+			lcd_puts(LCD_LINE_2, "SEL     UP    DN");
         }
-        lcd_puts(LCD_LINE_2, "SEL     ↑     ↓ ");
     }
     else {
         struct mpd_connection *mpd;
@@ -323,7 +329,6 @@ void update_lcd() {
     }
 
     wifi_info_t wifi_info;
-    puts("about to call get_wifi_info()");
     get_wifi_info(&wifi_info);
 
     int level = wifi_info.link_quality / 25;
@@ -344,13 +349,13 @@ static void display_network_info() {
     get_wifi_info(&wifi_info);
     char buf[17];
     snprintf(buf, sizeof(buf), "%03u,%03u,%03u", wifi_info.link_quality, wifi_info.signal_level, wifi_info.noise_level);
-    syslog(LOG_NOTICE, buf);
+    syslog(LOG_NOTICE, "%s", buf);
     lcd_puts(LCD_LINE_1, buf);
 
     char *ip_addr = get_ip_address("wlan0");
-    syslog(LOG_NOTICE, ip_addr);
+    syslog(LOG_NOTICE, "%s", ip_addr);
     snprintf(buf, sizeof(buf), "%-16s", ip_addr);
-    syslog(LOG_NOTICE, buf);
+    syslog(LOG_NOTICE, "%s", buf);
     lcd_puts(LCD_LINE_2, buf);
     free(ip_addr);
 }
@@ -397,7 +402,8 @@ void on_sigterm(int signum) {
 }
 
 
-int main() {
+int main(int argc, char **argv) {
+
 
     // Setup pigpio lib
     if (gpioInitialise() < 0) {
@@ -439,8 +445,7 @@ int main() {
     update_lcd();
     syslog(LOG_INFO, "*** KIDDYBLASTER STARTING UP ***");
 
-    // Init MFRC522 card reader
-    card_reader_init();
+	card_reader_init();
 
     // Setup buttons
     gpioSetMode(BUTTON_1_PIN, PI_INPUT);
@@ -476,9 +481,13 @@ int main() {
 
     // Start an own thread for reading RFID cards
     pthread_t *card_reader;
+	syslog(LOG_NOTICE, "Launching Card Reader Thread");
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
     browser = browser_new("/home/pi/Music");
+	if (browser == NULL) {
+		syslog(LOG_WARNING, "Failed to create Browser object");
+	}
 
     // Start an endless loop
     while (running) {
@@ -497,7 +506,6 @@ int main() {
             continue;
         }
 
-        puts("about to call update_lcd()");
         update_lcd();
 
         seconds_left = SLEEP_TIMER - (now - timer);

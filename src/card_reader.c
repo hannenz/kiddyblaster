@@ -1,5 +1,6 @@
 #include <syslog.h>
 #include <pigpio.h>
+#include <stdio.h>
 
 #include "mfrc522.h"
 #include "card_reader.h"
@@ -17,8 +18,8 @@ static MIFARE_Key auth_key = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }};
 
 
 void card_reader_init() {
-    mfrc522_init();
-    mfrc522_pcd_init();
+	mfrc522_init();
+	mfrc522_pcd_init();
 }
 
 
@@ -33,9 +34,10 @@ void card_reader_init() {
 void* read_cards(void *callback) {
 
     int card_id = 0;
+	callback_t cb = callback;
 
     while(1) {
-        gpioDelay(500000);
+		gpioDelay(500 * 1000);
 
         // Check for a new rfid card
         if (!mfrc522_picc_is_new_card_present()) {
@@ -54,16 +56,14 @@ void* read_cards(void *callback) {
 
         byte data[32];
         byte size = sizeof(data);
-        /* mfrc522_pcd_read_register_multi(8, sizeof(data), data, 1); */
+        // mfrc522_pcd_read_register_multi(8, sizeof(data), data, 1);
         mfrc522_mifare_read(8, data, &size);
         mfrc522_pcd_stop_crypto_1();
         syslog(LOG_NOTICE, "%02x %02x %02x %02x\n", data[0], data[1], data[2], data[3]);
 
         card_id = data[0] + 256 * data[1];
 
-        callback_t cb = callback;
         cb(card_id);
-
     }
 }
 

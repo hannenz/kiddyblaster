@@ -116,6 +116,9 @@ void lcd_puts(int line, const char *str) {
                 case 0x9f:
                     ch = 0b11100010;
                     break;
+				default:
+					ch = 0b00000000;
+					break;
             }
         }
         else {

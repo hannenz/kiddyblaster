@@ -18,6 +18,7 @@
 #include <syslog.h>
 #include <linux/wireless.h>
 #include <stdbool.h>
+#include <sys/ioctl.h>
 
 #include "network_info.h"
 
@@ -32,15 +33,9 @@ int get_wifi_info(wifi_info_t *wifi) {
         return -1;
     }
 
-    /* if (ifaddr == NULL) { */
-    /*     syslog(LOG_WARNING, "ifaddr is NULL"); */
-    /*     perror("ifaddr is NULL"); */
-    /*     return -1; */
-    /* } */
 
     bool wlan0_found = false;
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        printf("ifa->name: %s\n", ifa->ifa_name);
         if (strcmp(ifa->ifa_name, "wlan0") == 0) {
             wlan0_found = true;
             break;
@@ -72,8 +67,6 @@ int get_wifi_info(wifi_info_t *wifi) {
         perror("ioctl() failed when trying to get ESSID");
         return -1;
     }
-    
-    printf("ESSID: %s\n", request.u.essid.pointer);
 
     memset(&iwstats, 0, sizeof(iwstats));
     request.u.data.pointer = &iwstats;
@@ -84,8 +77,6 @@ int get_wifi_info(wifi_info_t *wifi) {
         perror("Can't open socket to obtain iwstats");
         return -1;
     }
-
-    printf("Signal level: %d\n", iwstats.qual.updated);
 
     return 0;
 }
@@ -165,7 +156,7 @@ int _get_wifi_info(wifi_info_t *wifi) {
  */
 char *get_ip_address(char* interface) {
     struct ifaddrs *addrs, *p;
-    char *ip;
+    char *ip = NULL;
 
     if (getifaddrs(&addrs) < 0) {
         return NULL;
