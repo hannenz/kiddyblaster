@@ -20,7 +20,7 @@ CFLAGS:=-Wall -g -O3
 CPPFLAGS ?= $(INC_FLAGS) -DLIB_PIGPIO
 
 # Linker flags
-LDFLAGS:=-L/home/hannenz/pidev/libs/lib -pthread -lpigpio -lmpdclient -lrt -lsqlite3
+LDFLAGS:=-L/home/hannenz/pidev/libs/lib -lrt -pthread -lpigpio -lmpdclient -lsqlite3
 
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) 
@@ -45,7 +45,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 .PHONY: clean install
 
 writecard: src/writecard/writecard.c src/card.c src/card.h src/mfrc522.c src/mfrc522.h
-	$(CC) -o $(BUILD_DIR)/writecard src/writecard/writecard.c src/card.c src/mfrc522.c -lsqlite3 -lbcm2835 -lpigpio
+	$(CC) $(CFLAGS) $(CXXFLAGS) -o $(BUILD_DIR)/writecard src/writecard/writecard.c src/card.c src/mfrc522.c $(LDFLAGS) -lsqlite3 -lbcm2835 -lpigpio
 
 install: 
 	install -m 755 $(BUILD_DIR)/$(TARGET_EXEC) /usr/local/bin/
@@ -60,14 +60,19 @@ install:
 	# Only install if not exists yet, we don't want to overwrite an existing database!
 	[ -e /var/lib/kiddyblaster/cards.sql ] || install -m 644 $(DATA_DIR)/cards.sql /var/lib/kiddyblaster/
 
-	install -m 755 build/writecard /usr/local/bin/
-
 	# Install systemd service 
 	install -m 644 $(DATA_DIR)/kiddyblaster.service /etc/systemd/system/
 	/bin/systemctl enable kiddyblaster.service
 
 	# Install mpd.conf
 	install -m 644 $(DATA_DIR)/mpd.conf /etc/
+
+REMOTE_HOST=pi@kiddyblaster
+remoteinstall:
+	scp -r build $(REMOTE_HOST)-simon:/tmp/
+	ssh $(REMOTE_HOST)-simon "sudo install -m 755 /tmp/build/kiddyblaster /usr/local/bin/"
+	ssh $(REMOTE_HOST)-simon "sudo install -m 755 /tmp/build/writecard /usr/local/bin/"
+
 
 devinstall:
 	/bin/systemctl stop kiddyblaster.service

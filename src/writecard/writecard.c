@@ -205,7 +205,8 @@ int write_card(const char *name, const char *_uri) {
 const char *path_to_uri(const char *path) {
 
     /** TODO! Read this from /etc/mpd.conf **/
-    const char *musicdir = "/home/pi/Music/";
+    const char *musicdir = "/srv/audio";
+
     char *uri = malloc(strlen(path));
     int i;
 
@@ -236,7 +237,7 @@ static void usage() {
     puts("\nUsage: sudo writecard name uri\n");
 	puts("name          Name of the card");
     puts("uri           Path to the directory relative");
-    puts("              to `/home/pi/Music`, __without__ leading or");
+    puts("              to `~/Music`, __without__ leading or");
     puts("              trailing slashes, e.g. `Audiobooks/Das Dschungelbuch`\n");
 	puts("NOTE: writecard must be run with root privileges\n");
 }

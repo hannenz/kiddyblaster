@@ -32,7 +32,6 @@ Thus I decidede to add a RJ52 plug for maintenance.
 
 - libmpdclient-dev
 - pigpio
-- bcm2835 (Todo: Get rid of one of the two...)
 - libsqlite3-dev
 - libglib2.0-dev
 - libiw-dev
@@ -92,15 +91,7 @@ Update 2019-12-02: Installation step-by-step
 
 ```
 sudo apt update && sudo appt upgrade
-sudo apt-get --no-install-recommends install git mpc mpd pigpio libmpdclient-dev libsqlite3-dev libglib2.0-dev
-cd
-wget http://www.airspayce.com/mikem/bcm2835/bcm2835-1.60.tar.gz`
-tar zxvf bcm2835-1.60.tar.gz
-cd bcm2835-1.60
-./configure
-make
-sudo make check
-sudo make install
+sudo apt-get --no-install-recommends install git mpc mpd pigpio libmpdclient-dev libsqlite3-dev
 cd
 git clone https://github.com/hannenz/kiddyblaster
 cd ~/kiddyblaster

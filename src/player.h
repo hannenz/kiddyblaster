@@ -3,6 +3,7 @@
 
 int player_get_current_song_nr();
 void player_toggle();
+void player_play();
 void player_pause();
 void player_next();
 void player_previous();

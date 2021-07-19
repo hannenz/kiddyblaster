@@ -9,6 +9,7 @@
  * @package kiddyblaster
  * @version Sun Jan 20 10:04:57 UTC 2019
  */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,7 +63,8 @@ bool running = true;
 bool select_mode = false;
 Browser *browser;
 
-
+// The MPD music dir
+#define MUSICDIR "/srv/audio"
 
 // Prototypes
 void update_lcd();
@@ -173,8 +175,16 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
                         }
                     }
                     else {
-                        syslog(LOG_NOTICE, "|| TOGGLE\n");
-                        player_toggle();
+						// If mpd is stopped, f.e. after reboot, toggle has no
+						// effect, so we need to explicitly send PLAY
+						if (!player_is_playing()) {
+							syslog(LOG_NOTICE, "Calling player_play()");
+							player_play();
+						}
+						else {
+							syslog(LOG_NOTICE, "|| TOGGLE\n");
+							player_toggle();
+						}
                     }
                     break;
 
@@ -275,13 +285,14 @@ static void on_button_pressed(int pin, int level, uint32_t tick) {
 void update_lcd() {
     if (select_mode) {
         lcd_clear();
-		const char *base_path = "/home/pi/Music/";
+
+		const char *musicdir = MUSICDIR;
         const char *uri = browser_get_selected_directory(browser);
 		if (uri != NULL) {
 			syslog(LOG_NOTICE, "Selected: %s", uri);
 			int n;
 			for (n = 0; n < strlen(uri); n++) {
-				if (uri[n] != base_path[n]) {
+				if (uri[n] != musicdir[n]) {
 					break;
 				}
 			}
@@ -296,7 +307,7 @@ void update_lcd() {
 
         mpd = mpd_connection_new("localhost", 6600, 0);
         if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-            syslog(LOG_ERR, "Failed to connect to mpd\n");
+            syslog(LOG_ERR, "update_lcd(): Failed to connect to mpd\n");
             return;
         }
 
@@ -310,33 +321,37 @@ void update_lcd() {
         int song_id = mpd_status_get_song_id(status);
 
         struct mpd_song *song = mpd_run_get_queue_song_id(mpd, song_id);
-        char *title;
+        char *title, *album;
         if (song) {
             title = (char*)mpd_song_get_tag(song, MPD_TAG_TITLE, 0);
+			album = (char*)mpd_song_get_tag(song, MPD_TAG_ALBUM, 0);
 
             n = mpd_status_get_song_pos(status) + 1;
             m = mpd_status_get_queue_length(status);
 
             mpd_status_free(status);
-            mpd_connection_free(mpd);
 
             snprintf(str, sizeof(str), "%c %02u/%02u         ", states[state], n, m);
             lcd_puts(LCD_LINE_1, str);
 
-            snprintf(str, sizeof(str), "%-16s", title);
+			/* TODO: Use album (or card name) if title is null */
+            snprintf(str, sizeof(str), "%-16s", title != NULL ? title : album);
             lcd_puts(LCD_LINE_2, str);
         }
-    }
 
-    wifi_info_t wifi_info;
-    get_wifi_info(&wifi_info);
-
-    int level = wifi_info.link_quality / 25;
-    if (level > 3) {
-        level = 3;
+		mpd_connection_free(mpd);
     }
-    lcd_loc(0x8f);
-    lcd_byte(level, LCD_CHR);
+	return;
+
+    /* wifi_info_t wifi_info; */
+    /* get_wifi_info(&wifi_info); */
+    /*  */
+    /* int level = wifi_info.link_quality / 25; */
+    /* if (level > 3) { */
+    /*     level = 3; */
+    /* } */
+    /* lcd_loc(0x8f); */
+    /* lcd_byte(level, LCD_CHR); */
 }
 
 
@@ -361,7 +376,10 @@ static void display_network_info() {
 }
 
 
+
 static void on_card_detected(int card_id) {
+
+	char *message = NULL;
 
     Card *card = card_read(card_id);
     if (card != NULL) {
@@ -370,13 +388,26 @@ static void on_card_detected(int card_id) {
             card->uri[strlen(card->uri)] = '\0';
         }
 
-        syslog(LOG_NOTICE, "Calling player_play_uri(%s)\n", card->uri);
+		syslog(LOG_NOTICE, "Calling player_play_uri(%s)\n", card->uri);
         player_play_uri(card->uri);
+
         lcd_set_backlight(true);
-        update_lcd();
+		lcd_clear();
+		if (asprintf(&message, "Spiele Karte #%u", card_id) >= 0) {
+			lcd_puts(LCD_LINE_1, message);
+			lcd_puts(LCD_LINE_2, card->name);
+			free(message);
+		}
     }
     else {
-        syslog(LOG_ERR, "No card found with id #%u\n", card_id);
+		lcd_clear();
+		lcd_puts(LCD_LINE_1, "Keine Karte ge-");
+		if (asprintf(&message, "funden mit #%u", card_id) > 0) {
+			lcd_puts(LCD_LINE_2, message);
+			free(message);
+		}
+
+		syslog(LOG_ERR, "No card found with id #%u\n", card_id);
     }
 }
 
@@ -484,14 +515,16 @@ int main(int argc, char **argv) {
 	syslog(LOG_NOTICE, "Launching Card Reader Thread");
     card_reader = gpioStartThread(read_cards, &on_card_detected);
 
-    browser = browser_new("/home/pi/Music");
+    browser = browser_new(MUSICDIR);
 	if (browser == NULL) {
 		syslog(LOG_WARNING, "Failed to create Browser object");
 	}
 
+	syslog(LOG_NOTICE, "player_is_playing(): %s", player_is_playing() ? "yes" : "no");
+
     // Start an endless loop
     while (running) {
-        int now, seconds_left;
+        int now;
         /* gpioDelay(5000000); */
         gpioSleep(PI_TIME_RELATIVE, 5, 0);
 
@@ -508,8 +541,8 @@ int main(int argc, char **argv) {
 
         update_lcd();
 
-        seconds_left = SLEEP_TIMER - (now - timer);
-        syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60);
+        /* int seconds_left = SLEEP_TIMER - (now - timer); */
+        /* syslog(LOG_NOTICE, "%02u:%02u until sleep\n", seconds_left / 60, seconds_left % 60); */
         if (now - timer >= SLEEP_TIMER) {
             goto_sleep();
             timer = now;

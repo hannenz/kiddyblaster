@@ -9,10 +9,11 @@ bool player_is_playing() {
     struct mpd_connection *mpd;
     struct mpd_status *status;
     int state;
+	
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_is_playing(): Failed to connect to mpd\n");
         return -1;
     }
 
@@ -36,7 +37,7 @@ int player_get_current_song_nr() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_get_current_song_nr(): Failed to connect to mpd\n");
         return -1;
     }
 
@@ -60,7 +61,7 @@ void player_toggle() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_toggle(): Failed to connect to mpd\n");
         return;
     }
 
@@ -74,11 +75,25 @@ void player_pause() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_pause(): Failed to connect to mpd\n");
         return;
     }
 
     mpd_run_pause(mpd, true);
+
+    mpd_connection_free(mpd);
+}
+
+void player_play() {
+    struct mpd_connection *mpd;
+
+    mpd = mpd_connection_new("localhost", 6600, 0);
+    if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
+        syslog(LOG_ERR, "player_pause(): Failed to connect to mpd\n");
+        return;
+    }
+
+    mpd_run_play(mpd);
 
     mpd_connection_free(mpd);
 }
@@ -89,7 +104,7 @@ void player_next() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_next(): Failed to connect to mpd\n");
         return;
     }
 
@@ -104,7 +119,7 @@ void player_previous() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_previous(): Failed to connect to mpd\n");
         return;
     }
 
@@ -119,7 +134,7 @@ void player_play_uri(const char *uri) {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_play_uri(): Failed to connect to mpd\n");
         return;
     }
 
@@ -140,7 +155,7 @@ void player_replay_playlist() {
 
     mpd = mpd_connection_new("localhost", 6600, 0);
     if (mpd == NULL || mpd_connection_get_error(mpd) != MPD_ERROR_SUCCESS) {
-        syslog(LOG_ERR, "Failed to connect to mpd\n");
+        syslog(LOG_ERR, "player_replay_playlist(): Failed to connect to mpd\n");
         return;
     }
 

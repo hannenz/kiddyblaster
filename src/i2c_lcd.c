@@ -1,5 +1,8 @@
 #include <pigpio.h>
+#include <string.h>
 #include "i2c_lcd.h"
+
+#define MAX_LINE_LENGTH 128
 
 int fd;
 
@@ -8,9 +11,28 @@ int fd;
  * reprint with backlight off
  */
 char content[2][16];
+char long_content[2][MAX_LINE_LENGTH];
 
 int backlight = 0x08;
 
+/* static void marquee() { */
+/* 	static unsigned int _x[2] = { 0, 0 }; */
+/* 	for (int line = 0; line < 2; line++) { */
+/* 		int x = _x[line]; */
+/* 		if (strlen(long_content[line]) > 16) { */
+/* 			if (x < strlen(long_content[line] - 16)) { */
+/* 				lcd_puts(line, (const char*)long_content[line][x]); */
+/* 			} */
+/* 			else { */
+/* 				x[line] = 0; */
+/* 			} */
+/* 		} */
+/* 	} */
+/* } */
+
+void set_long_content(int line, const char *str) {
+	strncpy(long_content[line], str, MAX_LINE_LENGTH);
+}
 
 
 void lcd_set_backlight(int bl) {
@@ -248,6 +270,8 @@ void lcd_init() {
     gpioDelay(500);
 
     setup_custom_chars();
+
+	/* gpioSetTimerFunc(14, 500, marquee); */
 }
 
 void lcd_deinit() {
