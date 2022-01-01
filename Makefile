@@ -67,11 +67,11 @@ install:
 	# Install mpd.conf
 	install -m 644 $(DATA_DIR)/mpd.conf /etc/
 
-REMOTE_HOST=pi@kiddyblaster
+REMOTE_HOST=dietpi@kiddyblaster-emma
 remoteinstall:
-	scp -r build $(REMOTE_HOST)-simon:/tmp/
-	ssh $(REMOTE_HOST)-simon "sudo install -m 755 /tmp/build/kiddyblaster /usr/local/bin/"
-	ssh $(REMOTE_HOST)-simon "sudo install -m 755 /tmp/build/writecard /usr/local/bin/"
+	scp -r build $(REMOTE_HOST):/tmp/
+	ssh $(REMOTE_HOST) "sudo install -m 755 /tmp/build/kiddyblaster /usr/local/bin/"
+	ssh $(REMOTE_HOST) "sudo install -m 755 /tmp/build/writecard /usr/local/bin/"
 
 
 devinstall:

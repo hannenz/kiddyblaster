@@ -1,8 +1,8 @@
 /**
  * Standalone CLI utility to
  * write RFID cards
- *
  * Johannes Braun <johannes.braun@hannenz.de>
+ *
  * Sun Feb  3 15:46:40 UTC 2019
  *
  * Compile with
@@ -77,6 +77,8 @@ int kiddyblaster_is_running() {
 int verify_path(const char *uri) {
 	struct stat sb;
 
+	return true;
+	// TODO: Prefix with base path from mpd config!!
 	return (stat(uri, &sb) == 0 && S_ISDIR(sb.st_mode));
 }
 
@@ -94,7 +96,7 @@ int write_card(const char *name, const char *_uri) {
     const char *uri;
 
 	if (!verify_path(_uri)) {
-		printf("Path at URI '%s' does not exist or is not a directory\n", uri);
+		printf("Path at URI '%s' does not exist or is not a directory\n", _uri);
 		return 1;
 	}
 
