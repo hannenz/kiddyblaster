@@ -19,9 +19,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include "../bcm2835.h" 
-#include "../mfrc522.h"
-#include "../card.h"
+#include "bcm2835.h" 
+#include "mfrc522.h"
+#include "card.h"
 
 extern Uid uid;
 const char *path_to_uri(const char *_path);

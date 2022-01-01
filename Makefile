@@ -1,6 +1,6 @@
 # Makefile from https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
-CC=arm-linux-gnueabihf-gcc
-CXX=arm-linux-gnueabihf-g++
+CC=arm-linux-gnueabi-gcc
+CXX=arm-linux-gnueabi-g++
 TARGET_EXEC ?= kiddyblaster
 BUILD_DIR ?= ./build
 SRC_DIRS ?= ./src
@@ -45,7 +45,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 .PHONY: clean install
 
 writecard: src/writecard/writecard.c src/card.c src/card.h src/mfrc522.c src/mfrc522.h
-	$(CC) $(CFLAGS) $(CXXFLAGS) -o $(BUILD_DIR)/writecard src/writecard/writecard.c src/card.c src/mfrc522.c $(LDFLAGS) -lsqlite3 -lbcm2835 -lpigpio
+	$(CC) $(CFLAGS) $(CXXFLAGS) -o $(BUILD_DIR)/writecard src/writecard/writecard.c src/card.c src/mfrc522.c $(INC_FLAGS) $(LDFLAGS) -lsqlite3 -lbcm2835 -lpigpio
 
 install: 
 	install -m 755 $(BUILD_DIR)/$(TARGET_EXEC) /usr/local/bin/
